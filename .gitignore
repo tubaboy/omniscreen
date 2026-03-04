@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Environment Variables (SENSITIVE)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*
+
+# Next.js Build Output
+.next/
+out/
+
+# Production Builds
+build/
+dist/
+
+# Gemini AI (Internal/Sensitive)
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/
+TASKS.md
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+temp/
+tmp/
+
+# Prisma
+# Note: Migrations ARE usually committed, but local dev database shouldn't be
+*.db
+*.db-journal

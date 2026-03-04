@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Orientation {
+  LANDSCAPE
+  PORTRAIT
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+}
+
+model Screen {
+  id           String      @id @default(cuid())
+  name         String
+  orientation  Orientation @default(LANDSCAPE)
+  lastSeen     DateTime    @default(now())
+  status       String      @default("OFFLINE")
+  schedules    Schedule[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Asset {
+  id           String      @id @default(cuid())
+  name         String
+  type         AssetType
+  url          String
+  thumbnailUrl String?
+  duration     Int?        @default(10)
+  orientation  Orientation @default(LANDSCAPE)
+  tags         String[]    @default([])
+  size         BigInt
+  mimeType     String
+  playlists    PlaylistItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Schedule {
+  id           String      @id @default(cuid())
+  name         String
+  screenId     String
+  screen       Screen      @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  startTime    String
+  endTime      String
+  daysOfWeek   Int[]
+  priority     Int         @default(1)
+  startDate    DateTime?
+  endDate      DateTime?
+  items        PlaylistItem[]
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model PlaylistItem {
+  id           String      @id @default(cuid())
+  scheduleId   String
+  schedule     Schedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset       @relation(fields: [assetId], references: [id])
+  order        Int
+  duration     Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([scheduleId])
+  @@index([assetId])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+

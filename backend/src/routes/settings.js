@@ -37,6 +37,19 @@ async function settingsRoutes(fastify) {
 
         return { success: true };
     });
+
+    // POST /settings/test-alert (需 Auth) - 發送測試 LINE 通知
+    fastify.post('/settings/test-alert', {
+        preHandler: fastify.authenticate,
+    }, async (request, reply) => {
+        const { sendLineMessage } = require('../jobs/offlineAlert');
+        const result = await sendLineMessage('✅ [Omniscreen] 測試告警通知\n\n此訊息確認您的 LINE 通知設定正常運作！');
+        if (result?.status === 200) {
+            return { success: true, message: 'LINE 測試通知已發送' };
+        } else {
+            return reply.code(500).send({ error: `LINE API 回傳 ${result?.status}：${result?.body}` });
+        }
+    });
 }
 
 module.exports = settingsRoutes;

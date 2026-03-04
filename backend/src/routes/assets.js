@@ -228,21 +228,25 @@ async function assetRoutes(fastify, opts) {
       // Usually, DB consistency is prioritized, but here we'll proceed.
     }
 
-    // Delete DB record
+    // Delete DB records
+    // Delete related playlist items first to avoid foreign key constraint errors
+    await fastify.prisma.playlistItem.deleteMany({ where: { assetId: id } });
     await fastify.prisma.asset.delete({ where: { id } });
 
     return { success: true };
   });
 
-  // PATCH Asset (Update tags / name)
+  // PATCH Asset (Update tags / name / validity dates)
   fastify.patch('/assets/:id', async (request, reply) => {
     const { id } = request.params;
-    const { tags, name } = request.body || {};
+    const { tags, name, validFrom, validUntil } = request.body || {};
     const asset = await fastify.prisma.asset.update({
       where: { id },
       data: {
         ...(tags !== undefined ? { tags } : {}),
         ...(name !== undefined ? { name } : {}),
+        ...(validFrom !== undefined ? { validFrom: validFrom ? new Date(validFrom) : null } : {}),
+        ...(validUntil !== undefined ? { validUntil: validUntil ? new Date(validUntil) : null } : {}),
       },
     });
     return { ...asset, size: asset.size.toString() };

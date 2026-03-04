@@ -13,6 +13,7 @@ export default function AssetLibrary() {
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [addingTagId, setAddingTagId] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState('');
+  const [editingValidityId, setEditingValidityId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +75,12 @@ export default function AssetLibrary() {
   const updateTags = async (id: string, newTags: string[]) => {
     await api.patch(`/assets/${id}`, { tags: newTags });
     setAssets(prev => prev.map(a => a.id === id ? { ...a, tags: newTags } : a));
+  };
+
+  const updateValidity = async (id: string, validFrom: string | null, validUntil: string | null) => {
+    await api.patch(`/assets/${id}`, { validFrom, validUntil });
+    setAssets(prev => prev.map(a => a.id === id ? { ...a, validFrom, validUntil } as any : a));
+    setEditingValidityId(null);
   };
 
   const allTags = useMemo(() => {
@@ -268,6 +275,51 @@ export default function AssetLibrary() {
                   >+</button>
                 )}
               </div>
+
+              {/* Validity Dates */}
+              {(() => {
+                const a = asset as any;
+                const now = new Date();
+                const isExpired = a.validUntil && now > new Date(a.validUntil);
+                const notYetValid = a.validFrom && now < new Date(a.validFrom);
+                return (
+                  <div>
+                    {editingValidityId === asset.id ? (
+                      <div className="space-y-1.5">
+                        {[{ label: '上架日期', key: 'validFrom' }, { label: '下架日期', key: 'validUntil' }].map(({ label, key }) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <label className="text-[8px] font-black text-slate-400 uppercase w-14 shrink-0">{label}</label>
+                            <input
+                              type="date"
+                              defaultValue={a[key] ? new Date(a[key]).toISOString().slice(0, 10) : ''}
+                              id={`validity-${asset.id}-${key}`}
+                              className="flex-1 text-[10px] font-bold px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-[#1A5336]"
+                            />
+                          </div>
+                        ))}
+                        <div className="flex gap-1.5 mt-1">
+                          <button
+                            onClick={() => {
+                              const fromEl = document.getElementById(`validity-${asset.id}-validFrom`) as HTMLInputElement;
+                              const untilEl = document.getElementById(`validity-${asset.id}-validUntil`) as HTMLInputElement;
+                              updateValidity(asset.id, fromEl.value || null, untilEl.value || null);
+                            }}
+                            className="flex-1 text-[9px] font-black py-1 bg-[#1A5336] text-white rounded-lg"
+                          >儲存</button>
+                          <button onClick={() => setEditingValidityId(null)} className="flex-1 text-[9px] font-black py-1 bg-slate-100 text-slate-500 rounded-lg">取消</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setEditingValidityId(asset.id)}
+                        className={`text-[9px] font-bold ${isExpired ? 'text-red-500' : notYetValid ? 'text-orange-400' : a.validUntil ? 'text-[#1A5336]' : 'text-slate-300'} hover:underline`}
+                      >
+                        {isExpired ? '⚠ 已過期' : notYetValid ? `⏳ ${new Date((a as any).validFrom).toLocaleDateString('zh-TW')} 上架` : a.validUntil ? `📅 ${new Date(a.validUntil).toLocaleDateString('zh-TW')} 下架` : '+ 設定有效期限'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         ))}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Lock, LogOut, Save, KeyRound, Monitor, Eye, Bell, ChevronRight } from 'lucide-react';
 
-type Section = 'security' | 'player' | 'display';
+type Section = 'security' | 'player' | 'notification' | 'display';
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -24,11 +24,21 @@ export default function SettingsPage() {
     const [hudDefault, setHudDefault] = useState<boolean>(true);
     const [settingsLoading, setSettingsLoading] = useState(true);
 
+    // Notification settings
+    const [silentStart, setSilentStart] = useState<number>(0);
+    const [silentEnd, setSilentEnd] = useState<number>(8);
+    const [alertIntervalMin, setAlertIntervalMin] = useState<number>(30);
+    const [alertLoading, setAlertLoading] = useState(false);
+    const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
     useEffect(() => {
         api.get('/settings').then((res) => {
             setPollInterval(parseInt(res.data.player_poll_interval || '10'));
             setOfflineTimeout(parseInt(res.data.offline_timeout_min || '2'));
             setHudDefault(res.data.player_hud !== 'false');
+            setSilentStart(parseInt(res.data.alert_silent_start || '0'));
+            setSilentEnd(parseInt(res.data.alert_silent_end || '8'));
+            setAlertIntervalMin(parseInt(res.data.alert_interval_min || '30'));
         }).finally(() => setSettingsLoading(false));
     }, []);
 
@@ -73,9 +83,36 @@ export default function SettingsPage() {
         }
     };
 
+    const saveNotificationSettings = async () => {
+        try {
+            await api.patch('/settings', {
+                alert_silent_start: silentStart.toString(),
+                alert_silent_end: silentEnd.toString(),
+                alert_interval_min: alertIntervalMin.toString(),
+            });
+            setAlertMsg({ type: 'success', text: '通知設定已儲存' });
+        } catch {
+            setAlertMsg({ type: 'error', text: '儲存失敗' });
+        }
+    };
+
+    const sendTestAlert = async () => {
+        setAlertLoading(true);
+        setAlertMsg(null);
+        try {
+            await api.post('/settings/test-alert', {});
+            setAlertMsg({ type: 'success', text: 'LINE 測試通知已發送！請確認您的 LINE 是否收到訊息。' });
+        } catch (err: any) {
+            setAlertMsg({ type: 'error', text: err.response?.data?.error || '發送失敗，請確認 LINE Channel Token 是否正確。' });
+        } finally {
+            setAlertLoading(false);
+        }
+    };
+
     const nav: { id: Section; icon: React.ReactNode; label: string }[] = [
         { id: 'security', icon: <Lock size={16} />, label: '帳號安全' },
         { id: 'player', icon: <Monitor size={16} />, label: '播放機行為' },
+        { id: 'notification', icon: <Bell size={16} />, label: '通知告警' },
         { id: 'display', icon: <Eye size={16} />, label: '顯示偏好' },
     ];
 
@@ -227,6 +264,88 @@ export default function SettingsPage() {
                                     </button>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Notification Section */}
+                    {activeSection === 'notification' && (
+                        <div className="space-y-8">
+                            <div>
+                                <h2 className="text-lg font-black text-slate-800 mb-1">通知告警</h2>
+                                <p className="text-sm text-slate-400">設定螢幕離線時的 LINE 推播通知行為</p>
+                            </div>
+
+                            <div className="space-y-6 max-w-md">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                                            靜音開始時間
+                                        </label>
+                                        <select
+                                            value={silentStart}
+                                            onChange={e => setSilentStart(parseInt(e.target.value))}
+                                            className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none appearance-none"
+                                        >
+                                            {Array.from({ length: 24 }, (_, i) => (
+                                                <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                                            靜音結束時間
+                                        </label>
+                                        <select
+                                            value={silentEnd}
+                                            onChange={e => setSilentEnd(parseInt(e.target.value))}
+                                            className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none appearance-none"
+                                        >
+                                            {Array.from({ length: 24 }, (_, i) => (
+                                                <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-slate-400 -mt-2 ml-1">此時段內不發送 LINE 告警通知（適合店面休息時間）</p>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                                        持續離線重複發送間隔
+                                    </label>
+                                    <select
+                                        value={alertIntervalMin}
+                                        onChange={e => setAlertIntervalMin(parseInt(e.target.value))}
+                                        className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none appearance-none"
+                                    >
+                                        {[10, 15, 30, 60, 120, 240, 720].map(v => (
+                                            <option key={v} value={v}>每 {v} 分鐘發送一次</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-slate-400 mt-2 ml-1">若螢幕維持離線狀態，系統會依照此頻率重複發送通知</p>
+                                </div>
+
+                                {alertMsg && (
+                                    <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold ${alertMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                                        {alertMsg.text}
+                                    </div>
+                                )}
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={saveNotificationSettings}
+                                        className="flex items-center gap-2 px-6 py-4 bg-[#1A5336] text-white rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-[#1A5336]/90 transition-all"
+                                    >
+                                        <Save size={16} /> 儲存設定
+                                    </button>
+                                    <button
+                                        onClick={sendTestAlert}
+                                        disabled={alertLoading}
+                                        className="flex items-center gap-2 px-6 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all disabled:opacity-60"
+                                    >
+                                        <Bell size={16} /> {alertLoading ? '發送中...' : '測試 LINE 通知'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
 

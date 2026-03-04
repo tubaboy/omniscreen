@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
+import { savePlaylist, loadPlaylist, precacheUrls } from '@/hooks/useOfflinePlaylist';
 
 interface PlaylistItem {
   id: string;
@@ -21,19 +22,27 @@ function PlayerContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [fadeState, setFadeState] = useState<'visible' | 'fading-out' | 'fading-in'>('visible');
+  const [isOffline, setIsOffline] = useState(false);
   // HUD state
   const [serverHud, setServerHud] = useState(true);
   const showHud = urlHud === '0' || urlHud === 'false' ? false : (urlHud === '1' || urlHud === 'true' ? true : serverHud);
   const [hudVisible, setHudVisible] = useState(false);
   const [imageTimeLeft, setImageTimeLeft] = useState(0);
-  const [videoProgress, setVideoProgress] = useState(0); // 0~1
+  const [videoProgress, setVideoProgress] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const hudTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingIndexRef = useRef<number>(0);
   const imageStartRef = useRef<number>(0);
 
-  // We removed fetchPlaylist since it's merged into the pollData effect
+  // Register Service Worker
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('SW registration failed:', err);
+      });
+    }
+  }, []);
 
   // Trigger HUD briefly on item change, then fade
   const triggerHud = () => {
@@ -53,7 +62,7 @@ function PlayerContent() {
     setCurrentIndex(prev => {
       const nextIdx = playlist.length > 0 ? (prev + 1) % playlist.length : 0;
       transitionTo(nextIdx);
-      return prev; // state will update via transitionTo flow
+      return prev;
     });
   };
 
@@ -67,17 +76,29 @@ function PlayerContent() {
       try {
         const [plRes, setRes] = await Promise.allSettled([
           screenId ? api.get(`/playlists/${screenId}`) : Promise.resolve({ data: [] }),
-          api.get('/settings')
+          api.get('/settings'),
         ]);
+
+        let networkSuccess = false;
 
         if (setRes.status === 'fulfilled') {
           const intervalSec = parseInt(setRes.value.data.player_poll_interval || '10');
           currentInterval = Math.max(5000, intervalSec * 1000);
           setServerHud(setRes.value.data.player_hud !== 'false');
+          networkSuccess = true;
         }
 
         if (plRes.status === 'fulfilled' && screenId) {
           const newPlaylist = plRes.value.data as PlaylistItem[];
+          networkSuccess = true;
+
+          // Save to IndexedDB for offline fallback
+          if (newPlaylist.length > 0) {
+            await savePlaylist(screenId, newPlaylist);
+            // Pre-cache all media URLs via Service Worker
+            precacheUrls(newPlaylist.map((item) => item.url));
+          }
+
           setPlaylist(prev => {
             if (
               prev.length === newPlaylist.length &&
@@ -89,9 +110,27 @@ function PlayerContent() {
             return newPlaylist;
           });
           setLoading(false);
+          setIsOffline(false);
+        }
+
+        if (!networkSuccess) {
+          throw new Error('All network requests failed');
         }
       } catch (err) {
-        console.error('Poll failed', err);
+        console.warn('Poll failed, trying IndexedDB cache…', err);
+        setIsOffline(true);
+
+        // Fallback to IndexedDB cache
+        if (screenId) {
+          const cached = await loadPlaylist(screenId);
+          if (cached && cached.playlist.length > 0) {
+            setPlaylist(prev => {
+              if (prev.length > 0) return prev; // already playing, don't reset
+              return cached.playlist;
+            });
+            setLoading(false);
+          }
+        }
       }
 
       if (!isCancelled) {
@@ -167,6 +206,14 @@ function PlayerContent() {
 
   return (
     <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
+      {/* Offline Indicator */}
+      {isOffline && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-sm border border-orange-400/30 px-3 py-1.5 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+          <span className="text-orange-300 text-[10px] font-black uppercase tracking-widest">離線快取</span>
+        </div>
+      )}
+
       {/* Media Layer */}
       <div
         style={{ opacity, transition: 'opacity 0.3s ease-in-out', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}

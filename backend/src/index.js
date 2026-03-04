@@ -41,13 +41,18 @@ fastify.register(require('./routes/assets'), { prefix: '/api', preHandler: authP
 fastify.register(require('./routes/screens'), { prefix: '/api', preHandler: authPreHandler });
 fastify.register(require('./routes/playlists'), { prefix: '/api' }); // playlists stays public (player needs it)
 fastify.register(require('./routes/settings'), { prefix: '/api' }); // GET is public, PATCH is protected internal
+fastify.register(require('./routes/search'), { prefix: '/api', preHandler: authPreHandler }); // 搜尋功能需 Auth
 fastify.get('/ping', async () => ({ status: 'ok' }));
+
+const { startOfflineAlert } = require('./jobs/offlineAlert');
 
 // Start server
 const start = async () => {
   try {
     await fastify.listen({ port: process.env.PORT || 3001, host: '0.0.0.0' });
     fastify.log.info(`Server listening on ${fastify.server.address().port}`);
+    // Start background jobs after server is ready
+    startOfflineAlert(fastify.prisma);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

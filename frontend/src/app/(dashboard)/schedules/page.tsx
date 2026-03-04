@@ -182,7 +182,7 @@ export default function ScheduleManagement() {
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [selectedScreen, setSelectedScreen] = useState('');
+  const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>([]);
   const [startTime, setStartTime] = useState('00:00');
   const [endTime, setEndTime] = useState('23:59');
   const [startDate, setStartDate] = useState('');
@@ -223,7 +223,7 @@ export default function ScheduleManagement() {
   const resetForm = () => {
     setEditingId(null);
     setName('');
-    setSelectedScreen('');
+    setSelectedScreenIds([]);
     setStartTime('00:00');
     setEndTime('23:59');
     setStartDate('');
@@ -237,7 +237,7 @@ export default function ScheduleManagement() {
   const handleEdit = (schedule: Schedule) => {
     setEditingId(schedule.id);
     setName(schedule.name);
-    setSelectedScreen(schedule.screenId);
+    setSelectedScreenIds([schedule.screenId]);
     setStartTime(schedule.startTime);
     setEndTime(schedule.endTime);
     setStartDate(schedule.startDate ? schedule.startDate.split('T')[0] : '');
@@ -274,20 +274,20 @@ export default function ScheduleManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedScreen || queue.length === 0) {
+    if (selectedScreenIds.length === 0 || queue.length === 0) {
       alert('請選擇螢幕與至少一個素材');
       return;
     }
+    const assetItems = queue.map(a => ({
+      id: a.id,
+      duration: a.durationForSchedule || a.duration || 10,
+    }));
     const payload = {
       name: name || `排程 ${new Date().toLocaleDateString()}`,
-      screenId: selectedScreen,
       startTime,
       endTime,
       daysOfWeek,
-      assetItems: queue.map(a => ({
-        id: a.id,
-        duration: a.durationForSchedule || a.duration || 10,
-      })),
+      assetItems,
       priority,
       isActive,
       startDate: startDate || null,
@@ -295,11 +295,15 @@ export default function ScheduleManagement() {
     };
     try {
       if (editingId) {
-        await api.post(`/schedules/${editingId}`, payload);
+        await api.post(`/schedules/${editingId}`, { ...payload, screenId: selectedScreenIds[0] });
+        alert('排程已更新');
+      } else if (selectedScreenIds.length === 1) {
+        await api.post('/schedules', { ...payload, screenId: selectedScreenIds[0] });
+        alert('排程已建立');
       } else {
-        await api.post('/schedules', payload);
+        const res = await api.post('/schedules/batch', { ...payload, screenIds: selectedScreenIds });
+        alert(`已為 ${res.data.created} 個螢幕建立排程`);
       }
-      alert(editingId ? '排程已更新' : '排程已建立');
       resetForm();
       fetchData();
     } catch (err) {
@@ -362,8 +366,8 @@ export default function ScheduleManagement() {
 
   const queueIds = queue.map(a => a.id);
 
-  // Filter assets based on selected screen orientation
-  const selectedScreenData = screens.find(s => s.id === selectedScreen);
+  // Filter assets based on first selected screen orientation
+  const selectedScreenData = screens.find(s => s.id === selectedScreenIds[0]);
   const filteredAssets = assets.filter(asset => {
     if (!selectedScreenData) return true;
     return asset.orientation === selectedScreenData.orientation;
@@ -415,28 +419,48 @@ export default function ScheduleManagement() {
                   />
                 </div>
 
-                {/* Screen */}
+                {/* Screen - Multi-select Checkboxes */}
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
-                    選擇螢幕
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedScreen}
-                      onChange={e => setSelectedScreen(e.target.value)}
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none appearance-none cursor-pointer"
-                      required
-                    >
-                      <option value="">請點選選擇目標螢幕...</option>
-                      {screens.map(s => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.orientation})
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <Plus size={18} />
-                    </div>
+                  <div className="flex items-center justify-between mb-2 ml-1">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      選擇螢幕 {selectedScreenIds.length > 0 && <span className="text-[#1A5336]">({selectedScreenIds.length} 已選)</span>}
+                    </label>
+                    {!editingId && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedScreenIds(selectedScreenIds.length === screens.length ? [] : screens.map(s => s.id))}
+                        className="text-[9px] font-black text-[#1A5336] hover:underline uppercase tracking-wider"
+                      >
+                        {selectedScreenIds.length === screens.length ? '取消全選' : '全選'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    {screens.map(s => (
+                      <label key={s.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${selectedScreenIds.includes(s.id) ? 'bg-[#1A5336]/8 border border-[#1A5336]/20' : 'bg-white border border-slate-100 hover:border-slate-200'
+                        }`}>
+                        <input
+                          type={editingId ? 'radio' : 'checkbox'}
+                          checked={selectedScreenIds.includes(s.id)}
+                          onChange={() => {
+                            if (editingId) {
+                              setSelectedScreenIds([s.id]);
+                            } else {
+                              setSelectedScreenIds(prev =>
+                                prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                              );
+                            }
+                          }}
+                          className="accent-[#1A5336] w-4 h-4"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{s.name}</p>
+                          <p className="text-[9px] text-slate-400 font-medium">{s.orientation}</p>
+                        </div>
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${(s as any).status === 'ONLINE' ? 'bg-green-400' : 'bg-slate-300'}`} />
+                      </label>
+                    ))}
+                    {screens.length === 0 && <p className="text-xs text-slate-400 text-center py-2">尚無螢幕</p>}
                   </div>
                 </div>
 
@@ -484,8 +508,8 @@ export default function ScheduleManagement() {
                             );
                           }}
                           className={`flex-1 py-2.5 rounded-xl text-[11px] font-black transition-all ${selected
-                              ? 'bg-[#1A5336] text-white shadow-sm'
-                              : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
+                            ? 'bg-[#1A5336] text-white shadow-sm'
+                            : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
                             }`}
                         >
                           {label}

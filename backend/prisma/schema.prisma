@@ -37,6 +37,8 @@ model Asset {
   duration     Int?        @default(10)
   orientation  Orientation @default(LANDSCAPE)
   tags         String[]    @default([])
+  validFrom    DateTime?
+  validUntil   DateTime?
   size         BigInt
   mimeType     String
   playlists    PlaylistItem[]

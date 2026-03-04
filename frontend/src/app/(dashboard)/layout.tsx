@@ -1,6 +1,8 @@
 import { SidebarNav } from "@/components/SidebarNav";
 import { Monitor, LayoutDashboard } from "lucide-react";
 
+import { GlobalSearch } from "@/components/GlobalSearch";
+
 export default function DashboardLayout({
   children,
 }: Readonly<{
@@ -21,7 +23,7 @@ export default function DashboardLayout({
 
         <SidebarNav />
 
-        <div className="px-4 mt-auto mb-6">
+        {/* <div className="px-4 mt-auto mb-6">
           <div className="bg-gradient-to-br from-[#1A5336] to-[#2D7A51] rounded-3xl p-6 text-white relative overflow-hidden group">
             <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
             <p className="text-xs font-semibold opacity-80 mb-1">全新功能</p>
@@ -30,7 +32,10 @@ export default function DashboardLayout({
               立即下載
             </button>
           </div>
-        </div>
+        </div> */}
+
+        {/* This div acts as a spacer to replace the removed component so the profile section stays at the bottom */}
+        <div className="mt-auto"></div>
 
         <div className="p-6 border-t border-slate-100">
           <div className="flex items-center space-x-3">
@@ -48,19 +53,7 @@ export default function DashboardLayout({
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto relative custom-scrollbar">
         <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/40 px-8 py-4 flex justify-between items-center">
-          <div className="flex-1 max-w-md relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-              <LayoutDashboard size={16} className="text-slate-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="搜尋專案、螢幕..."
-              className="w-full pl-11 pr-24 py-2.5 bg-slate-50 border-transparent focus:bg-white focus:border-slate-200/60 rounded-2xl text-sm font-medium transition-all outline-none"
-            />
-            <div className="absolute inset-y-2 right-2 px-2 bg-white border border-slate-100 rounded-lg flex items-center shadow-sm pointer-events-none">
-              <span className="text-[10px] font-black text-slate-400 tracking-tighter">⌘ + F</span>
-            </div>
-          </div>
+          <GlobalSearch />
           <div className="flex items-center space-x-4">
             <div className="h-8 w-[1px] bg-slate-100 mx-2"></div>
             <span className="text-xs font-bold text-[#22C55E] flex items-center">

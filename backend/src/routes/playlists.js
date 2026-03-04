@@ -51,17 +51,25 @@ async function playlistRoutes(fastify, opts) {
     // 2. Priority Override: take only the highest priority schedule's items
     const winningSchedule = schedules[0];
 
-    return winningSchedule.items.map(item => ({
-      id: item.asset.id,
-      name: item.asset.name,
-      type: item.asset.type,
-      url: item.asset.url,
-      duration: item.duration || item.asset.duration || 10,
-      orientation: item.asset.orientation,
-    }));
+    return winningSchedule.items
+      .filter(item => {
+        const now = new Date();
+        const { validFrom, validUntil } = item.asset;
+        if (validFrom && now < new Date(validFrom)) return false;
+        if (validUntil && now > new Date(validUntil)) return false;
+        return true;
+      })
+      .map(item => ({
+        id: item.asset.id,
+        name: item.asset.name,
+        type: item.asset.type,
+        url: item.asset.url,
+        duration: item.duration || item.asset.duration || 10,
+        orientation: item.asset.orientation,
+      }));
   });
 
-  // POST Schedule (Create)
+  // POST Schedule (Create - single screen)
   fastify.post('/schedules', async (request, reply) => {
     const {
       name, screenId, startTime, endTime, daysOfWeek,
@@ -89,6 +97,46 @@ async function playlistRoutes(fastify, opts) {
       },
       include: { items: true },
     });
+  });
+
+  // POST /schedules/batch (Create for multiple screens at once)
+  fastify.post('/schedules/batch', async (request, reply) => {
+    const {
+      name, screenIds, startTime, endTime, daysOfWeek,
+      priority, assetItems = [], startDate, endDate, isActive,
+    } = request.body;
+
+    if (!Array.isArray(screenIds) || screenIds.length === 0) {
+      return reply.code(400).send({ error: 'screenIds must be a non-empty array' });
+    }
+
+    const created = await fastify.prisma.$transaction(
+      screenIds.map((screenId) =>
+        fastify.prisma.schedule.create({
+          data: {
+            name,
+            screenId,
+            startTime,
+            endTime,
+            daysOfWeek,
+            priority: priority ?? 1,
+            startDate: startDate ? new Date(startDate) : null,
+            endDate: endDate ? new Date(endDate) : null,
+            isActive: isActive !== undefined ? isActive : true,
+            items: {
+              create: assetItems.map((item, index) => ({
+                assetId: item.id || item.assetId || item,
+                order: index,
+                duration: item.duration || undefined,
+              })),
+            },
+          },
+          include: { items: true },
+        })
+      )
+    );
+
+    return { created: created.length, schedules: created };
   });
 
   // GET All Schedules

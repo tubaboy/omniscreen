@@ -46,10 +46,27 @@ async function assetRoutes(fastify, opts) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return assets.map(asset => ({
-      ...asset,
-      size: asset.size.toString(),
-    }));
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+    return assets.map(asset => {
+      let finalUrl = asset.url;
+      let finalThumbUrl = asset.thumbnailUrl;
+
+      // Fix mixed content / CORS for older assets saved with localhost
+      if (finalUrl && finalUrl.includes('localhost:3001/api')) {
+        finalUrl = finalUrl.replace('http://localhost:3001/api', baseUrl);
+      }
+      if (finalThumbUrl && finalThumbUrl.includes('localhost:3001/api')) {
+        finalThumbUrl = finalThumbUrl.replace('http://localhost:3001/api', baseUrl);
+      }
+
+      return {
+        ...asset,
+        size: asset.size.toString(),
+        url: finalUrl,
+        thumbnailUrl: finalThumbUrl,
+      };
+    });
   });
 
   // POST Asset (Upload)

@@ -14,7 +14,33 @@ async function s3Plugin(fastify, opts) {
   });
 
   fastify.decorate('s3', client);
-  fastify.decorate('bucketName', process.env.MINIO_BUCKET_NAME || 'omniscreen-assets');
+  const bucketName = process.env.MINIO_BUCKET_NAME || 'omniscreen-assets';
+  fastify.decorate('bucketName', bucketName);
+
+  // Auto-create bucket if it doesn't exist
+  fastify.addHook('onReady', async () => {
+    try {
+      const { HeadBucketCommand, CreateBucketCommand } = require('@aws-sdk/client-s3');
+
+      try {
+        await client.send(new HeadBucketCommand({ Bucket: bucketName }));
+        fastify.log.info(`Bucket "${bucketName}" already exists.`);
+      } catch (error) {
+        if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+          fastify.log.info(`Bucket "${bucketName}" not found. Creating...`);
+          await client.send(new CreateBucketCommand({ Bucket: bucketName }));
+          fastify.log.info(`Bucket "${bucketName}" created successfully.`);
+
+          // Optional: Set bucket policy for public access to assets/thumbnails if needed
+          // You can add putBucketPolicy here if public reading is required
+        } else {
+          throw error;
+        }
+      }
+    } catch (err) {
+      fastify.log.error('Failed to initialize MinIO bucket:', err);
+    }
+  });
 }
 
 module.exports = fp(s3Plugin);

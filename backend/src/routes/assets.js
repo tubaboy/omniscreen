@@ -1,5 +1,4 @@
 const { PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const { v4: uuidv4 } = require('uuid');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
@@ -40,6 +39,7 @@ const probeMetadata = (filePath) => {
 };
 
 async function assetRoutes(fastify, opts) {
+  const { v4: uuidv4 } = await import('uuid');
   // GET Assets
   fastify.get('/assets', async (request, reply) => {
     const assets = await fastify.prisma.asset.findMany({

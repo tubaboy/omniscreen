@@ -78,8 +78,15 @@ function startOfflineAlert(prisma) {
                 const silentEndSetting = await prisma.systemSetting.findUnique({ where: { key: 'alert_silent_end' } });
                 const silentStart = parseInt(silentStartSetting?.value || '0');
                 const silentEnd = parseInt(silentEndSetting?.value || '8');
-                const currentHour = new Date().getHours();
-                
+                // Get current hour in Asia/Taipei timezone
+                const currentHour = parseInt(
+                    new Intl.DateTimeFormat('en-US', {
+                        hour: 'numeric',
+                        hour12: false,
+                        timeZone: 'Asia/Taipei',
+                    }).format(new Date())
+                );
+
                 let isSilent = false;
                 if (silentStart < silentEnd) {
                     isSilent = currentHour >= silentStart && currentHour < silentEnd;

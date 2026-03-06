@@ -15,6 +15,7 @@ export function SidebarNav() {
             <NavItem href="/assets" icon={<Image size={20} />} label="素材庫" active={pathname === "/assets"} />
             <NavItem href="/screens" icon={<Monitor size={20} />} label="螢幕管理" active={pathname === "/screens"} />
             <NavItem href="/schedules" icon={<Calendar size={20} />} label="播放排程" active={pathname === "/schedules"} />
+            <NavItem href="/analytics" icon={<LayoutDashboard size={20} />} label="成效報表" active={pathname === "/analytics"} />
 
             <div className="pt-8">
                 <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">系統設定</p>
@@ -29,8 +30,8 @@ function NavItem({ href, icon, label, active = false }: { href: string, icon: Re
         <Link
             href={href}
             className={`flex items-center justify-between group px-4 py-3 rounded-2xl transition-all duration-200 cursor-pointer ${active
-                    ? "bg-[#E8F5E9] text-[#1A5336] shadow-sm"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-[#E8F5E9] text-[#1A5336] shadow-sm"
+                : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
         >
             <div className="flex items-center space-x-3">

@@ -79,7 +79,15 @@ function startOfflineAlert(prisma) {
                 const silentStart = parseInt(silentStartSetting?.value || '0');
                 const silentEnd = parseInt(silentEndSetting?.value || '8');
                 const currentHour = new Date().getHours();
-                if (currentHour >= silentStart && currentHour < silentEnd) continue;
+                
+                let isSilent = false;
+                if (silentStart < silentEnd) {
+                    isSilent = currentHour >= silentStart && currentHour < silentEnd;
+                } else if (silentStart > silentEnd) {
+                    isSilent = currentHour >= silentStart || currentHour < silentEnd;
+                }
+
+                if (isSilent) continue;
 
                 const minutesOffline = Math.floor((Date.now() - new Date(screen.lastSeen).getTime()) / 60000);
                 const message = `⚠️ [Omniscreen] 螢幕離線警告\n\n螢幕名稱：${screen.name}\n離線時間：${minutesOffline} 分鐘\n\n請確認設備狀態。`;

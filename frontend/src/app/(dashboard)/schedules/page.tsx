@@ -16,7 +16,9 @@ import {
   ListOrdered,
   ImageIcon,
   Film,
+  BarChart3,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   DndContext,
   closestCenter,
@@ -178,6 +180,7 @@ export default function ScheduleManagement() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -758,14 +761,23 @@ export default function ScheduleManagement() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => router.push(`/analytics/schedules/${schedule.id}`)}
+                        className="p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-500 rounded-xl transition-all"
+                        title="成效報表"
+                      >
+                        <BarChart3 size={18} />
+                      </button>
+                      <button
                         onClick={() => handleEdit(schedule)}
                         className="p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-500 rounded-xl transition-all"
+                        title="編輯排程"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button
                         onClick={() => handleDelete(schedule.id)}
                         className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all"
+                        title="刪除排程"
                       >
                         <Trash2 size={18} />
                       </button>

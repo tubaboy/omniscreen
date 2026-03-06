@@ -7,6 +7,8 @@ import { savePlaylist, loadPlaylist, precacheUrls } from '@/hooks/useOfflinePlay
 
 interface PlaylistItem {
   id: string;
+  assetId?: string;
+  scheduleId?: string;
   name: string;
   type: 'IMAGE' | 'VIDEO';
   url: string;
@@ -53,6 +55,22 @@ function PlayerContent() {
   };
 
   const transitionTo = (nextIndex: number) => {
+    // Log the current item playback before transitioning
+    const currentItem = playlist[currentIndex];
+    if (currentItem && screenId && !isOffline) {
+      const durationPlay = currentItem.type === 'IMAGE'
+        ? currentItem.duration
+        : (videoRef.current ? videoRef.current.currentTime : 0);
+
+      api.post('/logs/playback', {
+        screenId,
+        assetId: currentItem.assetId || currentItem.id, // Fallback for old cached data
+        scheduleId: currentItem.scheduleId,
+        duration: Math.round(durationPlay),
+        status: 'SUCCESS'
+      }).catch(err => console.error('Failed to log playback', err));
+    }
+
     if (timerRef.current) clearTimeout(timerRef.current);
     pendingIndexRef.current = nextIndex;
     setFadeState('fading-out');

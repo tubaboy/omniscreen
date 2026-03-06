@@ -60,7 +60,9 @@ async function playlistRoutes(fastify, opts) {
         return true;
       })
       .map(item => ({
-        id: item.asset.id,
+        id: item.id, // Use unique PlaylistItem id for React keys
+        assetId: item.asset.id,
+        scheduleId: item.scheduleId,
         name: item.asset.name,
         type: item.asset.type,
         url: item.asset.url,

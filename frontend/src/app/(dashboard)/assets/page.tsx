@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import api, { Asset } from '@/lib/api';
-import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, Filter, MoreVertical, X, Play, Eye, Tag } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, Filter, MoreVertical, X, Play, Eye, Tag, BarChart3 } from 'lucide-react';
 
 export default function AssetLibrary() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -15,6 +16,7 @@ export default function AssetLibrary() {
   const [tagInput, setTagInput] = useState('');
   const [editingValidityId, setEditingValidityId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -218,18 +220,27 @@ export default function AssetLibrary() {
               {/* Delete & Preview Overlay */}
               <div className="absolute inset-0 bg-[#1A5336]/90 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-6 translate-y-4 group-hover:translate-y-0 p-4 text-center">
                 <p className="text-white text-xs font-bold leading-tight line-clamp-2 px-2 mb-2">{asset.name}</p>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }}
-                    className="w-14 h-14 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl flex items-center justify-center hover:bg-white hover:text-[#1A5336] hover:scale-110 active:scale-95 transition-all shadow-xl"
+                    className="w-12 h-12 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl flex items-center justify-center hover:bg-white hover:text-[#1A5336] hover:scale-110 active:scale-95 transition-all shadow-xl"
+                    title="預覽"
                   >
-                    <Eye size={24} />
+                    <Eye size={20} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); router.push(`/analytics/assets/${asset.id}`); }}
+                    className="w-12 h-12 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:scale-110 active:scale-95 transition-all shadow-xl"
+                    title="成效報表"
+                  >
+                    <BarChart3 size={20} />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }}
-                    className="w-14 h-14 bg-red-500/20 backdrop-blur-md text-red-100 border border-red-500/30 rounded-2xl flex items-center justify-center hover:bg-red-600 hover:text-white hover:scale-110 active:scale-95 transition-all shadow-xl"
+                    className="w-12 h-12 bg-red-500/20 backdrop-blur-md text-red-100 border border-red-500/30 rounded-2xl flex items-center justify-center hover:bg-red-600 hover:text-white hover:scale-110 active:scale-95 transition-all shadow-xl"
+                    title="刪除"
                   >
-                    <Trash2 size={24} />
+                    <Trash2 size={20} />
                   </button>
                 </div>
               </div>

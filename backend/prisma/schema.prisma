@@ -84,3 +84,18 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 }
 
+model PlaybackLog {
+  id           String      @id @default(cuid())
+  screenId     String
+  scheduleId   String?
+  assetId      String?
+  playedAt     DateTime    @default(now())
+  duration     Int         @default(0)
+  status       String      @default("SUCCESS") // "SUCCESS" | "ERROR"
+  errorMessage String?
+  
+  @@index([screenId])
+  @@index([assetId])
+  @@index([scheduleId])
+  @@index([playedAt])
+}

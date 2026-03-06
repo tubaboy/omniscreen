@@ -215,7 +215,13 @@ async function assetRoutes(fastify, opts) {
       // Or old URL format: http://localhost:9000/omniscreen-assets/assets/uuid-filename.ext
       const match = url.match(/\/([^/]+\.[a-zA-Z0-9]+)(?:\?|$)/);
       if (match && match[1]) {
-        return isThumb ? `thumbnails/${match[1]}` : `assets/${match[1]}`;
+        const filename = match[1];
+        if (isThumb) {
+          // Rule for thumbnails: thumb-{basename_without_ext}.jpg
+          const baseNameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+          return `thumbnails/thumb-${baseNameWithoutExt}.jpg`;
+        }
+        return `assets/${filename}`;
       }
       return null;
     };

@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Volume2, VolumeX } from 'lucide-react';
 import api from '@/lib/api';
+
 import { savePlaylist, loadPlaylist, precacheUrls } from '@/hooks/useOfflinePlaylist';
 
 interface PlaylistItem {
@@ -25,6 +27,9 @@ function PlayerContent() {
   const [loading, setLoading] = useState(true);
   const [fadeState, setFadeState] = useState<'visible' | 'fading-out' | 'fading-in'>('visible');
   const [isOffline, setIsOffline] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [autoPlayError, setAutoPlayError] = useState(false);
+
   // HUD state
   const [serverHud, setServerHud] = useState(true);
   const showHud = urlHud === '0' || urlHud === 'false' ? false : (urlHud === '1' || urlHud === 'true' ? true : serverHud);
@@ -36,6 +41,26 @@ function PlayerContent() {
   const hudTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingIndexRef = useRef<number>(0);
   const imageStartRef = useRef<number>(0);
+
+  // Initialize mute state from localStorage
+  useEffect(() => {
+    const savedMute = localStorage.getItem(`player_${screenId}_muted`);
+    if (savedMute === 'false') {
+      setIsMuted(false);
+    }
+  }, [screenId]);
+
+  const toggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    localStorage.setItem(`player_${screenId}_muted`, String(nextMuted));
+    setAutoPlayError(false);
+
+    // Try to play if unmuting manually
+    if (!nextMuted && videoRef.current) {
+      videoRef.current.play().catch(console.error);
+    }
+  };
 
   // Register Service Worker
   useEffect(() => {
@@ -75,6 +100,7 @@ function PlayerContent() {
     pendingIndexRef.current = nextIndex;
     setFadeState('fading-out');
   };
+
 
   const next = () => {
     setCurrentIndex(prev => {
@@ -245,9 +271,19 @@ function PlayerContent() {
             src={currentItem.url}
             className="w-full h-full object-contain"
             autoPlay
-            muted
+            muted={isMuted}
             onEnded={() => transitionTo((currentIndex + 1) % playlist.length)}
             onError={() => transitionTo((currentIndex + 1) % playlist.length)}
+            onPlay={() => {
+              // If unmuted but browser blocked sound, handle it
+              if (!isMuted && videoRef.current) {
+                videoRef.current.play().catch(err => {
+                  console.warn('Autoplay with sound blocked, falling back to muted', err);
+                  setIsMuted(true);
+                  setAutoPlayError(true);
+                });
+              }
+            }}
             onTimeUpdate={() => {
               const v = videoRef.current;
               if (v && v.duration) setVideoProgress(v.currentTime / v.duration);
@@ -255,6 +291,40 @@ function PlayerContent() {
           />
         )}
       </div>
+
+      {/* Sound Toggle Button */}
+      {currentItem.type === 'VIDEO' && (
+        <div className="absolute top-4 left-4 z-50 transition-all">
+          <button
+            onClick={toggleMute}
+            className={`flex items-center gap-3 px-5 py-3 rounded-full backdrop-blur-md border transition-all shadow-2xl ${isMuted
+              ? 'bg-red-500/20 text-red-100 border-red-500/30 animate-bounce'
+              : 'bg-white/10 text-white/70 border-white/20 hover:bg-white/20'
+              }`}
+          >
+            {isMuted ? (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 bg-red-400 rounded-full animate-ping opacity-20"></div>
+                  <VolumeX size={20} className="relative z-10" />
+                </div>
+                <span className="text-xs font-black uppercase tracking-widest">點擊開啟聲音</span>
+              </>
+            ) : (
+              <Volume2 size={20} />
+            )}
+          </button>
+        </div>
+      )}
+
+      {autoPlayError && isMuted && (
+        <div className="absolute inset-x-0 top-20 flex justify-center z-50 pointer-events-none">
+          <div className="bg-orange-500/20 backdrop-blur-md border border-orange-500/30 px-6 py-3 rounded-2xl animate-in slide-in-from-top-4 duration-500">
+            <p className="text-orange-200 text-xs font-bold tracking-tight">瀏覽器已封鎖自動聲音，請點擊左上方按鈕開啟。</p>
+          </div>
+        </div>
+      )}
+
 
       {/* HUD Overlay */}
       <div

@@ -66,6 +66,27 @@ async function analyticsRoutes(fastify, options) {
             }
         });
 
+        // 3. Add historical daily stats
+        const stats = await fastify.prisma.dailyPlaybackStats.groupBy({
+            by: ['assetId'],
+            _sum: {
+                totalPlays: true,
+                totalDuration: true,
+                errorCount: true
+            },
+            where: {
+                date: playedAtClause || {},
+                assetId: { in: assetIds }
+            }
+        });
+
+        stats.forEach(stat => {
+            if (!metricsMap[stat.assetId]) return;
+            metricsMap[stat.assetId].totalImpressions += (stat._sum.totalPlays || 0);
+            metricsMap[stat.assetId].totalDuration += (stat._sum.totalDuration || 0);
+            metricsMap[stat.assetId].errorCount += (stat._sum.errorCount || 0);
+        });
+
         return Object.values(metricsMap);
     });
 
@@ -125,6 +146,23 @@ async function analyticsRoutes(fastify, options) {
             } else {
                 screenMap[log.screenId].errorCount += log._count._all;
             }
+        });
+
+        // 3. Add historical daily stats
+        const stats = await fastify.prisma.dailyPlaybackStats.groupBy({
+            by: ['screenId'],
+            _sum: { totalPlays: true, totalDuration: true, errorCount: true },
+            where: {
+                date: playedAtClause,
+                screenId: { in: screenIds }
+            }
+        });
+
+        stats.forEach(stat => {
+            if (!screenMap[stat.screenId]) return;
+            screenMap[stat.screenId].totalPlays += (stat._sum.totalPlays || 0);
+            screenMap[stat.screenId].totalDuration += (stat._sum.totalDuration || 0);
+            screenMap[stat.screenId].errorCount += (stat._sum.errorCount || 0);
         });
 
         return Object.values(screenMap);
@@ -233,13 +271,43 @@ async function analyticsRoutes(fastify, options) {
         const dailyTrend = Object.values(dailyTrendMap).sort((a, b) => a.date.localeCompare(b.date));
 
         // 7. Get error count separately
-        const errorCount = await fastify.prisma.playbackLog.count({
+        const errorCountFromLogs = await fastify.prisma.playbackLog.count({
             where: {
                 assetId: id,
                 playedAt: playedAtClause,
                 status: 'ERROR'
             }
         });
+
+        // 8. Fetch historical stats for daily trend and screen distribution
+        const stats = await fastify.prisma.dailyPlaybackStats.findMany({
+            where: {
+                assetId: id,
+                date: playedAtClause
+            }
+        });
+
+        let errorCountFromStats = 0;
+        stats.forEach(stat => {
+            totalImpressions += stat.totalPlays;
+            totalDuration += stat.totalDuration;
+            errorCountFromStats += stat.errorCount;
+
+            const dateKey = stat.date.toISOString().split('T')[0];
+            if (!dailyTrendMap[dateKey]) {
+                dailyTrendMap[dateKey] = { date: dateKey, impressions: 0, duration: 0 };
+            }
+            dailyTrendMap[dateKey].impressions += stat.totalPlays;
+            dailyTrendMap[dateKey].duration += stat.totalDuration;
+
+            if (!screenDistributionMap[stat.screenId]) {
+                screenDistributionMap[stat.screenId] = { screenId: stat.screenId, impressions: 0, duration: 0 };
+            }
+            screenDistributionMap[stat.screenId].impressions += stat.totalPlays;
+            screenDistributionMap[stat.screenId].duration += stat.totalDuration;
+        });
+
+        const errorCount = errorCountFromLogs + errorCountFromStats;
 
         return {
             asset,
@@ -306,7 +374,7 @@ async function analyticsRoutes(fastify, options) {
         });
 
         logs.forEach(log => {
-            if (!log.scheduleId) return; // Might be logs without schedule context
+            if (!log.scheduleId) return;
             if (!scheduleMap[log.scheduleId]) return;
 
             if (log.status === 'SUCCESS') {
@@ -315,6 +383,23 @@ async function analyticsRoutes(fastify, options) {
             } else {
                 scheduleMap[log.scheduleId].errorCount += log._count._all;
             }
+        });
+
+        // 3. Add historical daily stats
+        const stats = await fastify.prisma.dailyPlaybackStats.groupBy({
+            by: ['scheduleId'],
+            _sum: { totalPlays: true, totalDuration: true, errorCount: true },
+            where: {
+                date: playedAtClause,
+                scheduleId: { in: Object.keys(scheduleMap) }
+            }
+        });
+
+        stats.forEach(stat => {
+            if (!stat.scheduleId || !scheduleMap[stat.scheduleId]) return;
+            scheduleMap[stat.scheduleId].totalPlays += (stat._sum.totalPlays || 0);
+            scheduleMap[stat.scheduleId].totalDuration += (stat._sum.totalDuration || 0);
+            scheduleMap[stat.scheduleId].errorCount += (stat._sum.errorCount || 0);
         });
 
         return Object.values(scheduleMap);
@@ -424,13 +509,43 @@ async function analyticsRoutes(fastify, options) {
         const dailyTrend = Object.values(dailyTrendMap).sort((a, b) => a.date.localeCompare(b.date));
 
         // 7. Get error count separately
-        const errorCount = await fastify.prisma.playbackLog.count({
+        const errorCountFromLogs = await fastify.prisma.playbackLog.count({
             where: {
                 scheduleId: id,
                 playedAt: playedAtClause,
                 status: 'ERROR'
             }
         });
+
+        // 8. Fetch historical stats
+        const stats = await fastify.prisma.dailyPlaybackStats.findMany({
+            where: {
+                scheduleId: id,
+                date: playedAtClause
+            }
+        });
+
+        let errorCountFromStats = 0;
+        stats.forEach(stat => {
+            totalPlays += stat.totalPlays;
+            totalDuration += stat.totalDuration;
+            errorCountFromStats += stat.errorCount;
+
+            const dateKey = stat.date.toISOString().split('T')[0];
+            if (!dailyTrendMap[dateKey]) {
+                dailyTrendMap[dateKey] = { date: dateKey, plays: 0, duration: 0 };
+            }
+            dailyTrendMap[dateKey].plays += stat.totalPlays;
+            dailyTrendMap[dateKey].duration += stat.totalDuration;
+
+            if (!assetDistributionMap[stat.assetId]) {
+                assetDistributionMap[stat.assetId] = { assetId: stat.assetId, plays: 0, duration: 0 };
+            }
+            assetDistributionMap[stat.assetId].plays += stat.totalPlays;
+            assetDistributionMap[stat.assetId].duration += stat.totalDuration;
+        });
+
+        const errorCount = errorCountFromLogs + errorCountFromStats;
 
         return {
             schedule: {

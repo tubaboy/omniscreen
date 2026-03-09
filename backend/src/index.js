@@ -47,6 +47,7 @@ fastify.register(require('./routes/analytics'), { prefix: '/api', preHandler: au
 fastify.get('/ping', async () => ({ status: 'ok' }));
 
 const { startOfflineAlert } = require('./jobs/offlineAlert');
+const { startMaintenanceJob } = require('./jobs/maintenance');
 
 // Start server
 const start = async () => {
@@ -55,6 +56,7 @@ const start = async () => {
     fastify.log.info(`Server listening on ${fastify.server.address().port}`);
     // Start background jobs after server is ready
     startOfflineAlert(fastify.prisma);
+    startMaintenanceJob(fastify.prisma);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

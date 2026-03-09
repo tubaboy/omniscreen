@@ -99,3 +99,19 @@ model PlaybackLog {
   @@index([scheduleId])
   @@index([playedAt])
 }
+
+model DailyPlaybackStats {
+  id           String   @id @default(cuid())
+  date         DateTime // The day these stats represent (normalized to 00:00:00)
+  screenId     String
+  assetId      String
+  scheduleId   String?
+  totalPlays   Int      @default(0)
+  totalDuration Int     @default(0)
+  errorCount   Int      @default(0)
+
+  @@unique([date, screenId, assetId, scheduleId])
+  @@index([date])
+  @@index([screenId])
+  @@index([assetId])
+}

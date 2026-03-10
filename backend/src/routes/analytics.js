@@ -40,8 +40,7 @@ async function analyticsRoutes(fastify, options) {
                 by: ['assetId'],
                 _sum: { totalPlays: true, totalDuration: true, errorCount: true },
                 where: {
-                    date: playedAtClause,
-                    assetId: { not: null }
+                    date: playedAtClause
                 }
             });
 

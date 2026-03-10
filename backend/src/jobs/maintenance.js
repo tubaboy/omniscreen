@@ -12,25 +12,39 @@ function startMaintenanceJob(prisma) {
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     const RETENTION_DAYS = 90;
 
+    const getTaipeiNow = (date = new Date()) => {
+        const taipeiDate = new Date(date.getTime() + (8 * 60 * 60 * 1000));
+        return {
+            year: taipeiDate.getUTCFullYear(),
+            month: taipeiDate.getUTCMonth(),
+            day: taipeiDate.getUTCDate(),
+            hour: taipeiDate.getUTCHours(),
+            minute: taipeiDate.getUTCMinutes(),
+            second: taipeiDate.getUTCSeconds()
+        };
+    };
+
     const runMaintenance = async () => {
         console.log('[Maintenance] Starting log aggregation and pruning...');
         try {
             // 1. Aggregation Logic
-            // We aggregate logs from "yesterday" (to ensure all logs for that day wrap up)
-            const yesterday = new Date();
-            yesterday.setHours(0, 0, 0, 0);
-            yesterday.setDate(yesterday.getDate() - 1);
+            // We aggregate logs from "yesterday" in Taipei time
+            const tp = getTaipeiNow();
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Start of today in Taipei (UTC equivalent)
+            const todayTaipei = new Date(Date.UTC(tp.year, tp.month, tp.day, 0, 0, 0));
+            todayTaipei.setHours(todayTaipei.getHours() - 8); // Adjust for UTC+8
+
+            // Start of yesterday in Taipei
+            const yesterdayTaipei = new Date(todayTaipei.getTime() - ONE_DAY_MS);
 
             // Fetch grouped data for yesterday
             const aggregations = await prisma.playbackLog.groupBy({
                 by: ['screenId', 'assetId', 'scheduleId', 'status'],
                 where: {
                     playedAt: {
-                        gte: yesterday,
-                        lt: today
+                        gte: yesterdayTaipei,
+                        lt: todayTaipei
                     }
                 },
                 _count: { _all: true },
@@ -38,7 +52,7 @@ function startMaintenanceJob(prisma) {
             });
 
             if (aggregations.length > 0) {
-                console.log(`[Maintenance] Aggregating ${aggregations.length} groups for ${yesterday.toISOString().split('T')[0]}`);
+                console.log(`[Maintenance] Aggregating ${aggregations.length} groups for ${yesterdayTaipei.toISOString().split('T')[0]} (Taipei Date)`);
 
                 // Process each group and upsert into DailyPlaybackStats
                 // Note: In high volume, it's better to use raw SQL or batching.
@@ -49,7 +63,7 @@ function startMaintenanceJob(prisma) {
                     const key = `${agg.screenId}_${agg.assetId}_${agg.scheduleId || 'none'}`;
                     if (!statsMap.has(key)) {
                         statsMap.set(key, {
-                            date: yesterday,
+                            date: yesterdayTaipei,
                             screenId: agg.screenId,
                             assetId: agg.assetId,
                             scheduleId: agg.scheduleId,
@@ -109,11 +123,15 @@ function startMaintenanceJob(prisma) {
         }
     };
 
-    // Run daily at 02:00 AM
+    // Run daily at 02:00 AM (Taipei Time)
     const scheduleNextRun = () => {
         const now = new Date();
-        const nextRun = new Date();
-        nextRun.setHours(2, 0, 0, 0);
+        const tp = getTaipeiNow();
+
+        // Construct next 02:00 AM in Taipei
+        let nextRun = new Date(Date.UTC(tp.year, tp.month, tp.day, 2, 0, 0));
+        nextRun.setHours(nextRun.getHours() - 8); // Adjust for UTC+8 to get UTC timestamp
+
         if (nextRun <= now) {
             nextRun.setDate(nextRun.getDate() + 1);
         }

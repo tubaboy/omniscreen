@@ -2,11 +2,21 @@ async function playlistRoutes(fastify, opts) {
   // GET Playlist for a Screen (Core Engine)
   fastify.get('/playlists/:screenId', async (request, reply) => {
     const { screenId } = request.params;
+
+    // Force Asia/Taipei timezone for all time comparisons
     const now = new Date();
-    const currentDay = now.getDay(); // 0-6
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    // Use the start of today (midnight) for date range comparison
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Taipei is UTC+8. No DST in Taiwan.
+    const taipeiNow = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+
+    const currentDay = taipeiNow.getUTCDay(); // 0-6
+    const currentTime = `${taipeiNow.getUTCHours().toString().padStart(2, '0')}:${taipeiNow.getUTCMinutes().toString().padStart(2, '0')}`;
+
+    // Use the start of today (midnight) in Taipei for date range comparison
+    const year = taipeiNow.getUTCFullYear();
+    const month = taipeiNow.getUTCMonth();
+    const day = taipeiNow.getUTCDate();
+
+    const today = new Date(Date.UTC(year, month, day));
     const tomorrow = new Date(today.getTime() + 86400000);
 
     // 1. Find all active schedules for this screen and day

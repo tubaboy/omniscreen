@@ -13,70 +13,74 @@ async function analyticsRoutes(fastify, options) {
             })
         }
     }, async (request, reply) => {
-        // In a real high-volume app, you'd use raw SQL for group by queries or Prisma's groupBy
-        const { startDate, endDate } = request.query;
-        const playedAtClause = {};
-        if (startDate || endDate) {
-            if (startDate) playedAtClause.gte = new Date(startDate);
-            if (endDate) playedAtClause.lte = new Date(endDate);
-        } else {
-            // Default to last 30 days
-            playedAtClause.gte = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        }
-
-        // 1. Get stats from recent logs
-        const logStats = await fastify.prisma.playbackLog.groupBy({
-            by: ['assetId', 'status'],
-            _count: { _all: true },
-            _sum: { duration: true },
-            where: {
-                playedAt: playedAtClause,
-                assetId: { not: null }
-            }
-        });
-
-        // 2. Get stats from aggregated daily table
-        const dailyStats = await fastify.prisma.dailyPlaybackStats.groupBy({
-            by: ['assetId'],
-            _sum: { totalPlays: true, totalDuration: true, errorCount: true },
-            where: {
-                date: playedAtClause,
-                assetId: { not: null }
-            }
-        });
-
-        // 3. Combine unique asset IDs and fetch asset details
-        const assetIds = [...new Set([...logStats.map(l => l.assetId), ...dailyStats.map(s => s.assetId)])];
-        const assets = await fastify.prisma.asset.findMany({
-            where: { id: { in: assetIds } },
-            select: { id: true, name: true, type: true }
-        });
-
-        const metricsMap = {};
-        assets.forEach(a => {
-            metricsMap[a.id] = { ...a, totalImpressions: 0, totalDuration: 0, errorCount: 0 };
-        });
-
-        // 4. Merge recent log stats
-        logStats.forEach(log => {
-            if (!metricsMap[log.assetId]) return;
-            if (log.status === 'SUCCESS') {
-                metricsMap[log.assetId].totalImpressions += log._count._all;
-                metricsMap[log.assetId].totalDuration += (log._sum.duration || 0);
+        try {
+            const { startDate, endDate } = request.query;
+            const playedAtClause = {};
+            if (startDate || endDate) {
+                if (startDate) playedAtClause.gte = new Date(startDate);
+                if (endDate) playedAtClause.lte = new Date(endDate);
             } else {
-                metricsMap[log.assetId].errorCount += log._count._all;
+                // Default to last 30 days
+                playedAtClause.gte = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             }
-        });
 
-        // 5. Merge historical stats
-        dailyStats.forEach(stat => {
-            if (!metricsMap[stat.assetId]) return;
-            metricsMap[stat.assetId].totalImpressions += (stat._sum.totalPlays || 0);
-            metricsMap[stat.assetId].totalDuration += (stat._sum.totalDuration || 0);
-            metricsMap[stat.assetId].errorCount += (stat._sum.errorCount || 0);
-        });
+            // 1. Get stats from recent logs
+            const logStats = await fastify.prisma.playbackLog.groupBy({
+                by: ['assetId', 'status'],
+                _count: { _all: true },
+                _sum: { duration: true },
+                where: {
+                    playedAt: playedAtClause,
+                    assetId: { not: null }
+                }
+            });
 
-        return Object.values(metricsMap);
+            // 2. Get stats from aggregated daily table
+            const dailyStats = await fastify.prisma.dailyPlaybackStats.groupBy({
+                by: ['assetId'],
+                _sum: { totalPlays: true, totalDuration: true, errorCount: true },
+                where: {
+                    date: playedAtClause,
+                    assetId: { not: null }
+                }
+            });
+
+            // 3. Combine unique asset IDs and fetch asset details
+            const assetIds = [...new Set([...logStats.map(l => l.assetId), ...dailyStats.map(s => s.assetId)])];
+            const assets = await fastify.prisma.asset.findMany({
+                where: { id: { in: assetIds } },
+                select: { id: true, name: true, type: true }
+            });
+
+            const metricsMap = {};
+            assets.forEach(a => {
+                metricsMap[a.id] = { ...a, totalImpressions: 0, totalDuration: 0, errorCount: 0 };
+            });
+
+            // 4. Merge recent log stats
+            logStats.forEach(log => {
+                if (!metricsMap[log.assetId]) return;
+                if (log.status === 'SUCCESS') {
+                    metricsMap[log.assetId].totalImpressions += log._count._all;
+                    metricsMap[log.assetId].totalDuration += (log._sum.duration || 0);
+                } else {
+                    metricsMap[log.assetId].errorCount += log._count._all;
+                }
+            });
+
+            // 5. Merge historical stats
+            dailyStats.forEach(stat => {
+                if (!metricsMap[stat.assetId]) return;
+                metricsMap[stat.assetId].totalImpressions += (stat._sum.totalPlays || 0);
+                metricsMap[stat.assetId].totalDuration += (stat._sum.totalDuration || 0);
+                metricsMap[stat.assetId].errorCount += (stat._sum.errorCount || 0);
+            });
+
+            return Object.values(metricsMap);
+        } catch (error) {
+            fastify.log.error('Analytics Assets Error:', error);
+            return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
+        }
     });
 
     // GET /api/analytics/screens - Get screen uptime/playback metrics
@@ -90,63 +94,68 @@ async function analyticsRoutes(fastify, options) {
             })
         }
     }, async (request, reply) => {
-        const { startDate, endDate } = request.query;
+        try {
+            const { startDate, endDate } = request.query;
 
-        const playedAtClause = {};
-        if (startDate || endDate) {
-            if (startDate) playedAtClause.gte = new Date(startDate);
-            if (endDate) playedAtClause.lte = new Date(endDate);
-        } else {
-            // Default to last 30 days if no range provided
-            playedAtClause.gte = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        }
-
-        // 1. Get stats from recent logs
-        const logStats = await fastify.prisma.playbackLog.groupBy({
-            by: ['screenId', 'status'],
-            _count: { _all: true },
-            _sum: { duration: true },
-            where: { playedAt: playedAtClause }
-        });
-
-        // 2. Get stats from aggregated daily table
-        const dailyStats = await fastify.prisma.dailyPlaybackStats.groupBy({
-            by: ['screenId'],
-            _sum: { totalPlays: true, totalDuration: true, errorCount: true },
-            where: { date: playedAtClause }
-        });
-
-        // 3. Combine unique IDs and fetch details
-        const screenIds = [...new Set([...logStats.map(l => l.screenId), ...dailyStats.map(s => s.screenId)])];
-        const screens = await fastify.prisma.screen.findMany({
-            where: { id: { in: screenIds } },
-            select: { id: true, name: true, status: true, lastSeen: true }
-        });
-
-        const screenMap = {};
-        screens.forEach(s => {
-            screenMap[s.id] = { ...s, totalPlays: 0, totalDuration: 0, errorCount: 0 };
-        });
-
-        // 4. Merge stats
-        logStats.forEach(log => {
-            if (!screenMap[log.screenId]) return;
-            if (log.status === 'SUCCESS') {
-                screenMap[log.screenId].totalPlays += log._count._all;
-                screenMap[log.screenId].totalDuration += (log._sum.duration || 0);
+            const playedAtClause = {};
+            if (startDate || endDate) {
+                if (startDate) playedAtClause.gte = new Date(startDate);
+                if (endDate) playedAtClause.lte = new Date(endDate);
             } else {
-                screenMap[log.screenId].errorCount += log._count._all;
+                // Default to last 30 days if no range provided
+                playedAtClause.gte = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             }
-        });
 
-        dailyStats.forEach(stat => {
-            if (!screenMap[stat.screenId]) return;
-            screenMap[stat.screenId].totalPlays += (stat._sum.totalPlays || 0);
-            screenMap[stat.screenId].totalDuration += (stat._sum.totalDuration || 0);
-            screenMap[stat.screenId].errorCount += (stat._sum.errorCount || 0);
-        });
+            // 1. Get stats from recent logs
+            const logStats = await fastify.prisma.playbackLog.groupBy({
+                by: ['screenId', 'status'],
+                _count: { _all: true },
+                _sum: { duration: true },
+                where: { playedAt: playedAtClause }
+            });
 
-        return Object.values(screenMap);
+            // 2. Get stats from aggregated daily table
+            const dailyStats = await fastify.prisma.dailyPlaybackStats.groupBy({
+                by: ['screenId'],
+                _sum: { totalPlays: true, totalDuration: true, errorCount: true },
+                where: { date: playedAtClause }
+            });
+
+            // 3. Combine unique IDs and fetch details
+            const screenIds = [...new Set([...logStats.map(l => l.screenId), ...dailyStats.map(s => s.screenId)])];
+            const screens = await fastify.prisma.screen.findMany({
+                where: { id: { in: screenIds } },
+                select: { id: true, name: true, status: true, lastSeen: true }
+            });
+
+            const screenMap = {};
+            screens.forEach(s => {
+                screenMap[s.id] = { ...s, totalPlays: 0, totalDuration: 0, errorCount: 0 };
+            });
+
+            // 4. Merge stats
+            logStats.forEach(log => {
+                if (!screenMap[log.screenId]) return;
+                if (log.status === 'SUCCESS') {
+                    screenMap[log.screenId].totalPlays += log._count._all;
+                    screenMap[log.screenId].totalDuration += (log._sum.duration || 0);
+                } else {
+                    screenMap[log.screenId].errorCount += log._count._all;
+                }
+            });
+
+            dailyStats.forEach(stat => {
+                if (!screenMap[stat.screenId]) return;
+                screenMap[stat.screenId].totalPlays += (stat._sum.totalPlays || 0);
+                screenMap[stat.screenId].totalDuration += (stat._sum.totalDuration || 0);
+                screenMap[stat.screenId].errorCount += (stat._sum.errorCount || 0);
+            });
+
+            return Object.values(screenMap);
+        } catch (error) {
+            fastify.log.error('Analytics Screens Error:', error);
+            return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
+        }
     });
 
     // GET /api/analytics/assets/:id - Get detailed metrics for a single asset
@@ -311,72 +320,77 @@ async function analyticsRoutes(fastify, options) {
             })
         }
     }, async (request, reply) => {
-        const { startDate, endDate } = request.query;
+        try {
+            const { startDate, endDate } = request.query;
 
-        // Build where clause for logs
-        const playedAtClause = {};
-        if (startDate || endDate) {
-            if (startDate) playedAtClause.gte = new Date(startDate);
-            if (endDate) playedAtClause.lte = new Date(endDate);
-        } else {
-            // Default to last 30 days
-            playedAtClause.gte = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        }
-
-        // Fetch all schedules for reference
-        const schedules = await fastify.prisma.schedule.findMany({
-            select: { id: true, name: true, screenId: true }
-        });
-
-        const scheduleMap = {};
-        schedules.forEach(s => {
-            scheduleMap[s.id] = {
-                id: s.id,
-                name: s.name,
-                screenId: s.screenId,
-                totalPlays: 0,
-                totalDuration: 0,
-                errorCount: 0,
-            };
-        });
-
-        // 1. Group by scheduleId for total plays and duration
-        const logStats = await fastify.prisma.playbackLog.groupBy({
-            by: ['scheduleId', 'status'],
-            where: { playedAt: playedAtClause },
-            _count: { _all: true },
-            _sum: { duration: true }
-        });
-
-        // 2. Get stats from aggregated daily table
-        const dailyStats = await fastify.prisma.dailyPlaybackStats.groupBy({
-            by: ['scheduleId'],
-            _sum: { totalPlays: true, totalDuration: true, errorCount: true },
-            where: {
-                date: playedAtClause,
-                scheduleId: { in: Object.keys(scheduleMap) }
-            }
-        });
-
-        // 3. Merge stats
-        logStats.forEach(log => {
-            if (!log.scheduleId || !scheduleMap[log.scheduleId]) return;
-            if (log.status === 'SUCCESS') {
-                scheduleMap[log.scheduleId].totalPlays += log._count._all;
-                scheduleMap[log.scheduleId].totalDuration += (log._sum.duration || 0);
+            // Build where clause for logs
+            const playedAtClause = {};
+            if (startDate || endDate) {
+                if (startDate) playedAtClause.gte = new Date(startDate);
+                if (endDate) playedAtClause.lte = new Date(endDate);
             } else {
-                scheduleMap[log.scheduleId].errorCount += log._count._all;
+                // Default to last 30 days
+                playedAtClause.gte = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             }
-        });
 
-        dailyStats.forEach(stat => {
-            if (!stat.scheduleId || !scheduleMap[stat.scheduleId]) return;
-            scheduleMap[stat.scheduleId].totalPlays += (stat._sum.totalPlays || 0);
-            scheduleMap[stat.scheduleId].totalDuration += (stat._sum.totalDuration || 0);
-            scheduleMap[stat.scheduleId].errorCount += (stat._sum.errorCount || 0);
-        });
+            // Fetch all schedules for reference
+            const schedules = await fastify.prisma.schedule.findMany({
+                select: { id: true, name: true, screenId: true }
+            });
 
-        return Object.values(scheduleMap);
+            const scheduleMap = {};
+            schedules.forEach(s => {
+                scheduleMap[s.id] = {
+                    id: s.id,
+                    name: s.name,
+                    screenId: s.screenId,
+                    totalPlays: 0,
+                    totalDuration: 0,
+                    errorCount: 0,
+                };
+            });
+
+            // 1. Group by scheduleId for total plays and duration
+            const logStats = await fastify.prisma.playbackLog.groupBy({
+                by: ['scheduleId', 'status'],
+                where: { playedAt: playedAtClause },
+                _count: { _all: true },
+                _sum: { duration: true }
+            });
+
+            // 2. Get stats from aggregated daily table
+            const dailyStats = await fastify.prisma.dailyPlaybackStats.groupBy({
+                by: ['scheduleId'],
+                _sum: { totalPlays: true, totalDuration: true, errorCount: true },
+                where: {
+                    date: playedAtClause,
+                    scheduleId: { in: Object.keys(scheduleMap) }
+                }
+            });
+
+            // 3. Merge stats
+            logStats.forEach(log => {
+                if (!log.scheduleId || !scheduleMap[log.scheduleId]) return;
+                if (log.status === 'SUCCESS') {
+                    scheduleMap[log.scheduleId].totalPlays += log._count._all;
+                    scheduleMap[log.scheduleId].totalDuration += (log._sum.duration || 0);
+                } else {
+                    scheduleMap[log.scheduleId].errorCount += log._count._all;
+                }
+            });
+
+            dailyStats.forEach(stat => {
+                if (!stat.scheduleId || !scheduleMap[stat.scheduleId]) return;
+                scheduleMap[stat.scheduleId].totalPlays += (stat._sum.totalPlays || 0);
+                scheduleMap[stat.scheduleId].totalDuration += (stat._sum.totalDuration || 0);
+                scheduleMap[stat.scheduleId].errorCount += (stat._sum.errorCount || 0);
+            });
+
+            return Object.values(scheduleMap);
+        } catch (error) {
+            fastify.log.error('Analytics Schedules Error:', error);
+            return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
+        }
     });
 
     // GET /api/analytics/schedules/:id - Get detailed metrics for a single schedule

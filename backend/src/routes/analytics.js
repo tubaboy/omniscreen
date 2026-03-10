@@ -14,6 +14,7 @@ async function analyticsRoutes(fastify, options) {
         }
     }, async (request, reply) => {
         // In a real high-volume app, you'd use raw SQL for group by queries or Prisma's groupBy
+        const { startDate, endDate } = request.query;
         const playedAtClause = {};
         if (startDate || endDate) {
             if (startDate) playedAtClause.gte = new Date(startDate);

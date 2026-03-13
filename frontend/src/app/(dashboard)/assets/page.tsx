@@ -25,6 +25,7 @@ interface WidgetFormState {
   textColor: string;
   // Duration
   duration: number;
+  contentType: 'manual' | 'news';
 }
 
 export default function AssetLibrary() {
@@ -58,6 +59,7 @@ export default function AssetLibrary() {
     scrolling: true,
     bgColor: '#0f172a',
     textColor: '#ffffff',
+    contentType: 'manual',
   });
 
   const openWidgetModal = () => {
@@ -76,6 +78,7 @@ export default function AssetLibrary() {
       scrolling: true,
       bgColor: '#0f172a',
       textColor: '#ffffff',
+      contentType: 'manual',
     });
     setShowWidgetModal(true);
   };
@@ -104,6 +107,7 @@ export default function AssetLibrary() {
       scrolling: config.scrolling ?? true,
       bgColor: config.bgColor ?? '#0f172a',
       textColor: config.textColor ?? '#ffffff',
+      contentType: config.contentType ?? 'manual',
     });
     setShowWidgetModal(true);
   };
@@ -127,6 +131,7 @@ export default function AssetLibrary() {
         scrolling: widgetForm.scrolling,
         bgColor: widgetForm.bgColor,
         textColor: widgetForm.textColor,
+        contentType: widgetForm.contentType,
       }
     };
 
@@ -662,11 +667,23 @@ export default function AssetLibrary() {
 
               </div>
 
-              {/* Announcement Marquee */}
-              <section className="space-y-4">
-                <h3 className="text-sm font-black text-slate-800 border-b pb-2 flex items-center gap-2"><Megaphone size={16}/> 底部跑馬燈公告</h3>
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-3 col-span-1 md:col-span-2">
+               {/* Announcement Marquee */}
+               <section className="space-y-4">
+                 <h3 className="text-sm font-black text-slate-800 border-b pb-2 flex items-center justify-between">
+                   <div className="flex items-center gap-2"><Megaphone size={16}/> 底部跑馬燈公告</div>
+                   <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                     <button 
+                       onClick={() => setWidgetForm(f => ({ ...f, contentType: 'manual' }))}
+                       className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${widgetForm.contentType === 'manual' ? 'bg-white shadow text-violet-600' : 'text-slate-500'}`}
+                     >自訂文字</button>
+                     <button 
+                       onClick={() => setWidgetForm(f => ({ ...f, contentType: 'news' }))}
+                       className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${widgetForm.contentType === 'news' ? 'bg-white shadow text-violet-600' : 'text-slate-500'}`}
+                     >即時新聞</button>
+                   </div>
+                 </h3>
+                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-5">
+                   <div className="space-y-3 col-span-1 md:col-span-2">
                     {[
                       { key: 'title', label: '標題 (選填)', placeholder: '焦點公告' },
                       { key: 'content', label: '內容', placeholder: '輸入要廣播的文字訊息...' },
@@ -679,7 +696,8 @@ export default function AssetLibrary() {
                             value={(widgetForm as any)[key]}
                             onChange={e => setWidgetForm(f => ({ ...f, [key]: e.target.value }))}
                             placeholder={placeholder}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-violet-400 transition-all resize-none text-sm"
+                            className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-violet-400 transition-all resize-none text-sm shadow-sm ${widgetForm.contentType === 'news' ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`}
+                            disabled={widgetForm.contentType === 'news'}
                           />
                         ) : (
                           <input
@@ -687,11 +705,22 @@ export default function AssetLibrary() {
                             value={(widgetForm as any)[key]}
                             onChange={e => setWidgetForm(f => ({ ...f, [key]: e.target.value }))}
                             placeholder={placeholder}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-violet-400 transition-all text-sm"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-violet-400 transition-all text-sm shadow-sm"
                           />
                         )}
                       </div>
                     ))}
+                    {widgetForm.contentType === 'news' && (
+                      <div className="p-4 bg-violet-50 border border-violet-100 rounded-2xl flex items-start gap-4 mt-2 animate-in slide-in-from-top-2 duration-300">
+                        <Zap size={20} className="text-violet-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-black text-violet-900 leading-none">即時新聞模式已啟動</p>
+                          <p className="text-[10px] text-violet-600 font-bold mt-1.5 leading-relaxed">
+                            系統將自動介接 Google RSS 提供最新頭條新聞標題。標題欄位（如有設定）將作為導讀前綴顯示。
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-3 justify-center">

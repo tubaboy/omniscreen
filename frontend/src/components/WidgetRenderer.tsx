@@ -20,6 +20,7 @@ export interface DashboardConfig {
   scrolling?: boolean;
   bgColor?: string;
   textColor?: string;
+  contentType?: 'manual' | 'news';
 }
 
 export interface WidgetConfig {
@@ -74,6 +75,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     scrolling = true,
     bgColor = '#0f172a',
     textColor = '#ffffff',
+    contentType = 'manual',
   } = config;
 
   // Clock State
@@ -83,7 +85,8 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   
   // Marquee State
-  const [offset, setOffset] = useState(0);
+  const [newsContent, setNewsContent] = useState<string>('');
+  const [loadingNews, setLoadingNews] = useState(false);
 
   // Clock Effect
   useEffect(() => {
@@ -115,6 +118,36 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     const t = setInterval(fetchWeather, 10 * 60 * 1000); // 10 minutes
     return () => clearInterval(t);
   }, [lat, lon]);
+
+  // News Fetching Effect
+  useEffect(() => {
+    if (contentType !== 'news') return;
+
+    const fetchNews = async () => {
+      setLoadingNews(true);
+      try {
+        // Use rss2json to parse Google News RSS for Taiwan
+        const rssUrl = encodeURIComponent('https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant');
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`);
+        const data = await res.json();
+        if (data.status === 'ok' && data.items) {
+          const titles = data.items.map((item: any) => item.title.split(' - ')[0]).join(' ｜ ');
+          setNewsContent(titles);
+        }
+      } catch (e) {
+        console.error('Failed to fetch news', e);
+        setNewsContent('暫時無法取得新聞資料');
+      } finally {
+        setLoadingNews(false);
+      }
+    };
+
+    fetchNews();
+    const t = setInterval(fetchNews, 30 * 60 * 1000); // 30 minutes
+    return () => clearInterval(t);
+  }, [contentType]);
+
+  const displayContent = contentType === 'news' ? (newsContent || (loadingNews ? '新聞讀取中...' : '')) : content;
 
   // Marquee Effect - Removed setInterval offset, using CSS animation for better performance
   // No longer need setOffset(x) in a loop
@@ -219,7 +252,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
       </div>
 
       {/* ─── Bottom Announcement Marquee ─── */}
-      {content && (
+      {displayContent && (
         <div 
           className="relative z-20 w-full h-[120px] lg:h-[160px] flex items-center overflow-hidden border-t shadow-2xl shrink-0"
           style={{ 
@@ -254,8 +287,8 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
               >
                 {[1, 2].map((i) => (
                   <div key={i} className="flex items-center shrink-0 pr-[400px]">
-                    <span style={{ fontSize: 'clamp(40px, 5vw, 80px)', fontWeight: 900 }}>
-                      {content}
+                    <span style={{ fontSize: displayContent.length > 50 ? 'clamp(32px, 4vw, 60px)' : 'clamp(40px, 5vw, 80px)', fontWeight: 900 }}>
+                      {displayContent}
                     </span>
                     <span className="opacity-30 px-20 text-6xl">•</span>
                   </div>
@@ -263,16 +296,16 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
               </div>
             ) : (
               <div className="w-full h-full flex items-center px-12 pl-[460px]">
-                <p 
-                  className="font-bold truncate"
-                  style={{ 
-                    fontSize: 'clamp(36px, 4vw, 70px)', 
-                    color: textColor,
-                    textShadow: '0 4px 12px rgba(0,0,0,0.2)' 
-                  }}
-                >
-                  {content}
-                </p>
+                  <p 
+                    className="font-bold truncate"
+                    style={{ 
+                      fontSize: displayContent.length > 50 ? 'clamp(32px, 3.5vw, 60px)' : 'clamp(36px, 4vw, 70px)', 
+                      color: textColor,
+                      textShadow: '0 4px 12px rgba(0,0,0,0.2)' 
+                    }}
+                  >
+                    {displayContent}
+                  </p>
               </div>
             )}
           </div>

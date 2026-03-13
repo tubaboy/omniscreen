@@ -118,15 +118,15 @@ function SortableQueueItem({
       {/* Name */}
       <p className="flex-1 text-xs font-bold text-slate-700 truncate">{asset.name}</p>
 
-      {/* Duration Input for Images */}
-      {asset.type === 'IMAGE' && (
+      {/* Duration Input for Images and Widgets */}
+      {(asset.type === 'IMAGE' || asset.type === 'WIDGET') && (
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <Clock size={12} className="text-slate-400" />
           <input
             type="number"
             min="1"
             className="w-14 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-center"
-            value={asset.durationForSchedule || asset.duration || 10}
+            value={asset.durationForSchedule || asset.duration || 30}
             onChange={(e) => onDurationChange(asset.id, parseInt(e.target.value) || 10)}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()} // 防止被 dnd-kit 攔截
@@ -249,7 +249,7 @@ export default function ScheduleManagement() {
     setDaysOfWeek((schedule as any).daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6]);
     setQueue(schedule.items.map(item => ({
       ...item.asset,
-      durationForSchedule: (item as any).duration || item.asset.duration || 10,
+      durationForSchedule: (item as any).duration || item.asset.duration || 30, // Default to 30 for widgets if unknown
     })));
     setIsActive(schedule.isActive);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -283,7 +283,9 @@ export default function ScheduleManagement() {
     }
     const assetItems = queue.map(a => ({
       id: a.id,
-      duration: a.durationForSchedule || a.duration || 10,
+      // Only send duration if it was explicitly changed to something different from the asset's default.
+      // This allows the backend to fallback to the asset's current duration if it's null in the PlaylistItem.
+      duration: a.durationForSchedule !== a.duration ? a.durationForSchedule : undefined,
     }));
     const payload = {
       name: name || `排程 ${new Date().toLocaleDateString()}`,

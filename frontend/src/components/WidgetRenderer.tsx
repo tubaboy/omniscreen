@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -21,6 +21,8 @@ export interface DashboardConfig {
   bgColor?: string;
   textColor?: string;
   contentType?: 'manual' | 'news';
+  newsUrl?: string;
+  marqueeSpeed?: number;
 }
 
 export interface WidgetConfig {
@@ -76,7 +78,12 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     bgColor = '#0f172a',
     textColor = '#ffffff',
     contentType = 'manual',
+    newsUrl = 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
+    marqueeSpeed = 25,
   } = config;
+
+  // Defensive: ensure numeric speed and default
+  const currentSpeed = Number(marqueeSpeed) || 25;
 
   // Clock State
   const [now, setNow] = useState(new Date());
@@ -87,6 +94,9 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
   // Marquee State
   const [newsContent, setNewsContent] = useState<string>('');
   const [loadingNews, setLoadingNews] = useState(false);
+  const [dynamicDuration, setDynamicDuration] = useState(currentSpeed);
+  const marqueeRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Clock Effect
   useEffect(() => {
@@ -126,9 +136,9 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     const fetchNews = async () => {
       setLoadingNews(true);
       try {
-        // Use rss2json to parse Google News RSS for Taiwan
-        const rssUrl = encodeURIComponent('https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant');
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`);
+        // Use rss2json to parse the provided newsUrl or default Google News RSS
+        const encodedRssUrl = encodeURIComponent(newsUrl);
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodedRssUrl}`);
         const data = await res.json();
         if (data.status === 'ok' && data.items) {
           const titles = data.items.map((item: any) => item.title.split(' - ')[0]).join(' ｜ ');
@@ -145,12 +155,33 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     fetchNews();
     const t = setInterval(fetchNews, 30 * 60 * 1000); // 30 minutes
     return () => clearInterval(t);
-  }, [contentType]);
+  }, [contentType, newsUrl]);
 
   const displayContent = contentType === 'news' ? (newsContent || (loadingNews ? '新聞讀取中...' : '')) : content;
 
-  // Marquee Effect - Removed setInterval offset, using CSS animation for better performance
-  // No longer need setOffset(x) in a loop
+  // Dynamic Animation Duration Calculation (Constant Speed)
+  useEffect(() => {
+    if (!scrolling || !contentRef.current) return;
+
+    const calculateDuration = () => {
+      const contentWidth = contentRef.current?.offsetWidth || 0;
+      if (contentWidth > 0) {
+        // We want 'currentSpeed' to represent a "comfortable reading pace"
+        // Let's define currentSpeed as: "how many seconds a 1920px width of content takes to cross"
+        // This makes it a constant physical speed regardless of total content length.
+        const baseWidth = 1920; 
+        const speedFactor = currentSpeed / baseWidth;
+        const newDuration = contentWidth * speedFactor;
+        setDynamicDuration(newDuration);
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(calculateDuration);
+    resizeObserver.observe(contentRef.current);
+    calculateDuration();
+
+    return () => resizeObserver.disconnect();
+  }, [scrolling, displayContent, currentSpeed]);
 
 
   // Format Time & Date
@@ -279,18 +310,21 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
           <div className="flex-1 w-full h-full relative overflow-hidden flex items-center">
             {scrolling ? (
               <div 
+                key={`${dynamicDuration}-${displayContent}`}
+                ref={marqueeRef}
                 className="flex whitespace-nowrap animate-marquee-text"
                 style={{ 
                   color: textColor,
-                  textShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                  textShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  animationDuration: `${dynamicDuration}s`
                 }}
               >
                 {[1, 2].map((i) => (
-                  <div key={i} className="flex items-center shrink-0 pr-[400px]">
+                  <div key={i} ref={i === 1 ? contentRef : null} className="flex items-center shrink-0 pr-[20vw]">
                     <span style={{ fontSize: displayContent.length > 50 ? 'clamp(32px, 4vw, 60px)' : 'clamp(40px, 5vw, 80px)', fontWeight: 900 }}>
                       {displayContent}
                     </span>
-                    <span className="opacity-30 px-20 text-6xl">•</span>
+                    <span className="opacity-30 px-10 text-6xl">•</span>
                   </div>
                 ))}
               </div>
@@ -315,11 +349,14 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
       <style>{`
         @keyframes clockBlink { 0%,100%{opacity:.6} 50%{opacity:.1} }
         @keyframes marqueeScroll {
-          0% { transform: translateX(400px); }
-          100% { transform: translateX(calc(-50% + 200px)); }
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
         }
         .animate-marquee-text {
-          animation: marqueeScroll 25s linear infinite;
+          display: flex;
+          width: max-content;
+          animation: marqueeScroll linear infinite;
+          will-change: transform;
         }
       `}</style>
     </div>

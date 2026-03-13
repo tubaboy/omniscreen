@@ -23,9 +23,9 @@ interface WidgetFormState {
   scrolling: boolean;
   bgColor: string;
   textColor: string;
-  // Duration
-  duration: number;
   contentType: 'manual' | 'news';
+  newsUrl: string;
+  marqueeSpeed: number;
 }
 
 export default function AssetLibrary() {
@@ -48,7 +48,6 @@ export default function AssetLibrary() {
   const [widgetForm, setWidgetForm] = useState<WidgetFormState>({
     name: '',
     widgetType: 'DASHBOARD', // Added widgetType
-    duration: 10,
     showDate: true,
     showSeconds: true,
     lat: '25.04',
@@ -60,6 +59,8 @@ export default function AssetLibrary() {
     bgColor: '#0f172a',
     textColor: '#ffffff',
     contentType: 'manual',
+    newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
+    marqueeSpeed: 25,
   });
 
   const openWidgetModal = () => {
@@ -67,7 +68,6 @@ export default function AssetLibrary() {
     setWidgetForm({
       name: '我的動態看板', // Default name for new widget
       widgetType: 'DASHBOARD',
-      duration: 30, // Default duration for new widget
       showDate: true,
       showSeconds: true,
       lat: '25.04',
@@ -79,6 +79,8 @@ export default function AssetLibrary() {
       bgColor: '#0f172a',
       textColor: '#ffffff',
       contentType: 'manual',
+      newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
+      marqueeSpeed: 25,
     });
     setShowWidgetModal(true);
   };
@@ -96,7 +98,6 @@ export default function AssetLibrary() {
     setWidgetForm({
       name: asset.name,
       widgetType: 'DASHBOARD', // Assuming all widgets are DASHBOARD for now
-      duration: asset.duration || 30, // Use asset.duration if available, else default
       showDate: config.showDate ?? true,
       showSeconds: config.showSeconds ?? true,
       lat: (config.lat ?? 25.04).toString(),
@@ -108,6 +109,8 @@ export default function AssetLibrary() {
       bgColor: config.bgColor ?? '#0f172a',
       textColor: config.textColor ?? '#ffffff',
       contentType: config.contentType ?? 'manual',
+      newsUrl: config.newsUrl ?? 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
+      marqueeSpeed: config.marqueeSpeed ?? 25,
     });
     setShowWidgetModal(true);
   };
@@ -119,7 +122,7 @@ export default function AssetLibrary() {
     const payload = {
       name: widgetForm.name,
       widgetType: widgetForm.widgetType,
-      duration: widgetForm.duration,
+      duration: 30, // Default fallback, scheduling will override
       config: {
         showDate: widgetForm.showDate,
         showSeconds: widgetForm.showSeconds,
@@ -132,6 +135,8 @@ export default function AssetLibrary() {
         bgColor: widgetForm.bgColor,
         textColor: widgetForm.textColor,
         contentType: widgetForm.contentType,
+        newsUrl: widgetForm.newsUrl,
+        marqueeSpeed: widgetForm.marqueeSpeed,
       }
     };
 
@@ -593,7 +598,7 @@ export default function AssetLibrary() {
               {/* Basic Section */}
               <section className="space-y-4">
                 <h3 className="text-sm font-black text-slate-800 border-b pb-2">📂 基本設定</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 block">看板名稱</label>
                     <input
@@ -602,16 +607,6 @@ export default function AssetLibrary() {
                       onChange={e => setWidgetForm(f => ({ ...f, name: e.target.value }))}
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all shadow-sm"
                       placeholder="例如：大廳首頁看板"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 block">顯示時間（秒）</label>
-                    <input
-                      type="number"
-                      min={5} max={3600}
-                      value={widgetForm.duration}
-                      onChange={e => setWidgetForm(f => ({ ...f, duration: parseInt(e.target.value) || 30 }))}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all shadow-sm"
                     />
                   </div>
                 </div>
@@ -711,15 +706,48 @@ export default function AssetLibrary() {
                       </div>
                     ))}
                     {widgetForm.contentType === 'news' && (
-                      <div className="p-4 bg-violet-50 border border-violet-100 rounded-2xl flex items-start gap-4 mt-2 animate-in slide-in-from-top-2 duration-300">
-                        <Zap size={20} className="text-violet-500 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-black text-violet-900 leading-none">即時新聞模式已啟動</p>
-                          <p className="text-[10px] text-violet-600 font-bold mt-1.5 leading-relaxed">
-                            系統將自動介接 Google RSS 提供最新頭條新聞標題。標題欄位（如有設定）將作為導讀前綴顯示。
-                          </p>
-                        </div>
+                      <div className="space-y-4 mt-2 animate-in slide-in-from-top-2 duration-300">
+                        <div className="p-4 bg-violet-50 border border-violet-100 rounded-2xl">
+                          <div className="flex items-start gap-4 mb-4">
+                            <Zap size={20} className="text-violet-500 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-xs font-black text-violet-900 leading-none">即時新聞模式已啟動</p>
+                                <p className="text-[10px] text-violet-600 font-bold mt-1.5 leading-relaxed">
+                                    請從下方選擇熱門新聞來源，或在輸入框貼上您專屬的 RSS 連結。系統將自動介接 Google RSS 提供最新頭條新聞標題。標題欄位（如有設定）將作為導讀前綴顯示。
+                                </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">RSS 來源預設</label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { label: '🇹🇼 Google 新聞 (台灣)', url: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant' },
+                                { label: '🌎 BBC World News', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+                                { label: '💻 TechCrunch', url: 'https://techcrunch.com/feed/' },
+                                { label: '🚀 科技新報', url: 'https://technews.tw/feed/' }
+                              ].map(p => (
+                                <button
+                                  key={p.url}
+                                  onClick={() => setWidgetForm(f => ({ ...f, newsUrl: p.url }))}
+                                  className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all border ${widgetForm.newsUrl === p.url ? 'bg-violet-600 border-violet-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-violet-400'}`}
+                                >{p.label}</button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">RSS URL 連結</label>
+                            <input
+                              type="text"
+                              value={widgetForm.newsUrl}
+                              onChange={e => setWidgetForm(f => ({ ...f, newsUrl: e.target.value }))}
+                              placeholder="貼上 RSS 連結 (例如: https://.../rss.xml)"
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 text-xs outline-none focus:border-violet-400 shadow-sm"
+                            />
+                          </div>
                       </div>
+                    </div>
                     )}
                   </div>
 
@@ -736,7 +764,7 @@ export default function AssetLibrary() {
                     ))}
                   </div>
 
-                  <div className="flex flex-col justify-center border-l pl-5">
+                  <div className="flex flex-col justify-center border-l pl-5 space-y-6">
                     <label className="flex flex-col gap-3 cursor-pointer">
                       <span className="font-bold text-slate-700 text-sm">跑馬燈滾動效果</span>
                       <button
@@ -747,6 +775,28 @@ export default function AssetLibrary() {
                         <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${widgetForm.scrolling ? 'left-7' : 'left-1'}`} />
                       </button>
                     </label>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="font-bold text-slate-700 text-sm">滾動速度</label>
+                        <span className="text-[10px] font-black bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500">
+                          {widgetForm.marqueeSpeed}s {widgetForm.marqueeSpeed <= 15 ? '(快)' : widgetForm.marqueeSpeed >= 40 ? '(慢)' : ''}
+                        </span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="10" 
+                        max="60" 
+                        step="1"
+                        value={widgetForm.marqueeSpeed}
+                        onChange={e => setWidgetForm(f => ({ ...f, marqueeSpeed: parseInt(e.target.value) }))}
+                        className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                      />
+                      <div className="flex justify-between text-[8px] font-black text-slate-300 uppercase tracking-widest">
+                        <span>快</span>
+                        <span>慢</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>

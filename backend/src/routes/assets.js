@@ -259,17 +259,54 @@ async function assetRoutes(fastify, opts) {
     return { success: true };
   });
 
-  // PATCH Asset (Update tags / name / validity dates)
+  // POST Widget Asset (no file upload)
+  fastify.post('/assets/widget', async (request, reply) => {
+    const { name, widgetType, config } = request.body || {};
+    if (!name || !widgetType) return reply.code(400).send({ error: 'name and widgetType required' });
+
+    const widgetConfig = { widgetType, config: config || {} };
+    const asset = await fastify.prisma.asset.create({
+      data: {
+        name,
+        type: 'WIDGET',
+        url: JSON.stringify(widgetConfig),
+        thumbnailUrl: null,
+        size: BigInt(0),
+        mimeType: 'application/json',
+        orientation: 'LANDSCAPE',
+        duration: (config && config.duration) ? config.duration : 30,
+      },
+    });
+    return { ...asset, size: asset.size.toString() };
+  });
+
+  // PATCH Asset (Update tags / name / validity dates / widget config)
   fastify.patch('/assets/:id', async (request, reply) => {
     const { id } = request.params;
-    const { tags, name, validFrom, validUntil } = request.body || {};
+    const { tags, name, validFrom, validUntil, widgetType, config, duration } = request.body || {};
+
+    let urlUpdate = {};
+    if (widgetType !== undefined || config !== undefined) {
+      // Re-fetch current to merge config
+      const current = await fastify.prisma.asset.findUnique({ where: { id } });
+      let currentConfig = {};
+      try { currentConfig = JSON.parse(current.url || '{}'); } catch {}
+      const merged = {
+        widgetType: widgetType ?? currentConfig.widgetType,
+        config: config ?? currentConfig.config,
+      };
+      urlUpdate = { url: JSON.stringify(merged) };
+    }
+
     const asset = await fastify.prisma.asset.update({
       where: { id },
       data: {
         ...(tags !== undefined ? { tags } : {}),
         ...(name !== undefined ? { name } : {}),
+        ...(duration !== undefined ? { duration } : {}),
         ...(validFrom !== undefined ? { validFrom: validFrom ? new Date(validFrom) : null } : {}),
         ...(validUntil !== undefined ? { validUntil: validUntil ? new Date(validUntil) : null } : {}),
+        ...urlUpdate,
       },
     });
     return { ...asset, size: asset.size.toString() };
@@ -282,6 +319,8 @@ async function assetRoutes(fastify, opts) {
   fastify.get('/assets/file/*', async (request, reply) => {
     const filename = request.params['*'];
     if (!filename) return reply.code(400).send({ error: 'Filename is required' });
+
+    console.log('[DEBUG Proxy] Requested filename:', filename, 'isThumb:', request.query.thumb);
 
     const isThumb = request.query.thumb === 'true';
 
@@ -310,6 +349,7 @@ async function assetRoutes(fastify, opts) {
 
       return reply.send(response.Body);
     } catch (err) {
+      require('fs').writeFileSync('debug-err.json', JSON.stringify({ message: err.message, stack: err.stack, name: err.name, full: err }, null, 2));
       fastify.log.error('Proxy file failed:', err);
       return reply.code(404).send({ error: 'File not found' });
     }

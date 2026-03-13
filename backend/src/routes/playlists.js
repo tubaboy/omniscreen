@@ -69,16 +69,24 @@ async function playlistRoutes(fastify, opts) {
         if (validUntil && now > new Date(validUntil)) return false;
         return true;
       })
-      .map(item => ({
-        id: item.id, // Use unique PlaylistItem id for React keys
-        assetId: item.asset.id,
-        scheduleId: item.scheduleId,
-        name: item.asset.name,
-        type: item.asset.type,
-        url: item.asset.url,
-        duration: item.duration || item.asset.duration || 10,
-        orientation: item.asset.orientation,
-      }));
+      .map(item => {
+        const isWidget = item.asset.type === 'WIDGET';
+        let widgetConfig = null;
+        if (isWidget) {
+          try { widgetConfig = JSON.parse(item.asset.url); } catch(e) {}
+        }
+        return {
+          id: item.id, // Use unique PlaylistItem id for React keys
+          assetId: item.asset.id,
+          scheduleId: item.scheduleId,
+          name: item.asset.name,
+          type: item.asset.type,
+          url: isWidget ? null : item.asset.url,
+          duration: item.duration || item.asset.duration || 10,
+          orientation: item.asset.orientation,
+          widgetConfig,
+        };
+      });
   });
 
   // POST Schedule (Create - single screen)

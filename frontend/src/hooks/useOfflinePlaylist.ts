@@ -1,4 +1,5 @@
 import { openDB } from 'idb';
+import type { WidgetConfig } from '@/components/WidgetRenderer';
 
 const DB_NAME = 'OmniscreenDB';
 const DB_VERSION = 1;
@@ -9,9 +10,10 @@ export interface CachedPlaylist {
     playlist: Array<{
         id: string;
         name: string;
-        type: 'IMAGE' | 'VIDEO';
-        url: string;
+        type: 'IMAGE' | 'VIDEO' | 'WIDGET';
+        url: string | null;
         duration: number;
+        widgetConfig?: WidgetConfig;
     }>;
     cachedAt: number; // timestamp ms
 }

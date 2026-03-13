@@ -7,72 +7,62 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Orientation {
-  LANDSCAPE
-  PORTRAIT
-}
-
-enum AssetType {
-  IMAGE
-  VIDEO
-}
-
 model Screen {
-  id           String      @id @default(cuid())
-  name         String
-  orientation  Orientation @default(LANDSCAPE)
-  lastSeen     DateTime    @default(now())
-  status       String      @default("OFFLINE")
-  schedules    Schedule[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  name        String
+  orientation Orientation @default(LANDSCAPE)
+  lastSeen    DateTime    @default(now())
+  status      String      @default("OFFLINE")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  schedules   Schedule[]
 }
 
 model Asset {
-  id           String      @id @default(cuid())
+  id           String         @id @default(cuid())
   name         String
   type         AssetType
   url          String
   thumbnailUrl String?
-  duration     Int?        @default(10)
-  orientation  Orientation @default(LANDSCAPE)
-  tags         String[]    @default([])
-  validFrom    DateTime?
-  validUntil   DateTime?
+  duration     Int?           @default(10)
+  orientation  Orientation    @default(LANDSCAPE)
   size         BigInt
   mimeType     String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tags         String[]       @default([])
+  validFrom    DateTime?
+  validUntil   DateTime?
   playlists    PlaylistItem[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
 }
 
 model Schedule {
-  id           String      @id @default(cuid())
-  name         String
-  screenId     String
-  screen       Screen      @relation(fields: [screenId], references: [id], onDelete: Cascade)
-  startTime    String
-  endTime      String
-  daysOfWeek   Int[]
-  priority     Int         @default(1)
-  startDate    DateTime?
-  endDate      DateTime?
-  items        PlaylistItem[]
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id         String         @id @default(cuid())
+  name       String
+  screenId   String
+  startTime  String
+  endTime    String
+  daysOfWeek Int[]
+  priority   Int            @default(1)
+  isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  endDate    DateTime?
+  startDate  DateTime?
+  items      PlaylistItem[]
+  screen     Screen         @relation(fields: [screenId], references: [id], onDelete: Cascade)
 }
 
 model PlaylistItem {
-  id           String      @id @default(cuid())
-  scheduleId   String
-  schedule     Schedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  assetId      String
-  asset        Asset       @relation(fields: [assetId], references: [id])
-  order        Int
-  duration     Int?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id         String   @id @default(cuid())
+  scheduleId String
+  assetId    String
+  order      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  duration   Int?
+  asset      Asset    @relation(fields: [assetId], references: [id])
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
   @@index([scheduleId])
   @@index([assetId])
@@ -85,15 +75,15 @@ model SystemSetting {
 }
 
 model PlaybackLog {
-  id           String      @id @default(cuid())
+  id           String   @id @default(cuid())
   screenId     String
   scheduleId   String?
   assetId      String?
-  playedAt     DateTime    @default(now())
-  duration     Int         @default(0)
-  status       String      @default("SUCCESS") // "SUCCESS" | "ERROR"
+  playedAt     DateTime @default(now())
+  duration     Int      @default(0)
+  status       String   @default("SUCCESS")
   errorMessage String?
-  
+
   @@index([screenId])
   @@index([assetId])
   @@index([scheduleId])
@@ -101,17 +91,28 @@ model PlaybackLog {
 }
 
 model DailyPlaybackStats {
-  id           String   @id @default(cuid())
-  date         DateTime // The day these stats represent (normalized to 00:00:00)
-  screenId     String
-  assetId      String
-  scheduleId   String?
-  totalPlays   Int      @default(0)
-  totalDuration Int     @default(0)
-  errorCount   Int      @default(0)
+  id            String   @id @default(cuid())
+  date          DateTime
+  screenId      String
+  assetId       String
+  scheduleId    String?
+  totalPlays    Int      @default(0)
+  totalDuration Int      @default(0)
+  errorCount    Int      @default(0)
 
   @@unique([date, screenId, assetId, scheduleId])
   @@index([date])
   @@index([screenId])
   @@index([assetId])
+}
+
+enum Orientation {
+  LANDSCAPE
+  PORTRAIT
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  WIDGET
 }

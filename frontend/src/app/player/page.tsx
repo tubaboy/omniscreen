@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Volume2, VolumeX } from 'lucide-react';
 import api from '@/lib/api';
+import WidgetRenderer, { WidgetConfig } from '@/components/WidgetRenderer';
 
 import { savePlaylist, loadPlaylist, precacheUrls } from '@/hooks/useOfflinePlaylist';
 
@@ -12,9 +13,10 @@ interface PlaylistItem {
   assetId?: string;
   scheduleId?: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO';
-  url: string;
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET';
+  url: string | null;
   duration: number;
+  widgetConfig?: WidgetConfig;
 }
 
 function PlayerContent() {
@@ -79,11 +81,14 @@ function PlayerContent() {
     hudTimerRef.current = setTimeout(() => setHudVisible(false), 4000);
   };
 
-  const transitionTo = (nextIndex: number) => {
+  const transitionTo = useCallback((nextIndex: number) => {
+    if (fadeState !== 'visible') return;
+
     // Log the current item playback before transitioning
     const currentItem = playlist[currentIndex];
     if (currentItem && screenId && !isOffline) {
-      const durationPlay = currentItem.type === 'IMAGE'
+      // safely fallback duration for widgets
+      const durationPlay = currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET'
         ? currentItem.duration
         : (videoRef.current ? videoRef.current.currentTime : 0);
 
@@ -96,19 +101,20 @@ function PlayerContent() {
       }).catch(err => console.error('Failed to log playback', err));
     }
 
+    if (playlist.length <= 1) return; // If only 1 item, just stay
+
     if (timerRef.current) clearTimeout(timerRef.current);
     pendingIndexRef.current = nextIndex;
     setFadeState('fading-out');
-  };
+  }, [fadeState, playlist, currentIndex, screenId, isOffline]);
 
-
-  const next = () => {
+  const next = useCallback(() => {
     setCurrentIndex(prev => {
       const nextIdx = playlist.length > 0 ? (prev + 1) % playlist.length : 0;
       transitionTo(nextIdx);
       return prev;
     });
-  };
+  }, [playlist.length, transitionTo]);
 
   useEffect(() => {
     let currentInterval = 10000;
@@ -139,8 +145,8 @@ function PlayerContent() {
           // Save to IndexedDB for offline fallback
           if (newPlaylist.length > 0) {
             await savePlaylist(screenId, newPlaylist);
-            // Pre-cache all media URLs via Service Worker
-            precacheUrls(newPlaylist.map((item) => item.url));
+            // Pre-cache media URLs (skip WIDGET which has no URL)
+            precacheUrls(newPlaylist.filter(i => i.url).map((item) => item.url as string));
           }
 
           setPlaylist(prev => {
@@ -212,14 +218,14 @@ function PlayerContent() {
     }
   }, [fadeState]);
 
-  // Image countdown ticker
+  // Image / Widget countdown ticker
   useEffect(() => {
     if (playlist.length === 0 || fadeState !== 'visible') return;
     const currentItem = playlist[currentIndex];
     if (!currentItem) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    if (currentItem.type === 'IMAGE') {
+    if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET') {
       const dur = currentItem.duration;
       imageStartRef.current = Date.now();
       setImageTimeLeft(dur);
@@ -247,6 +253,7 @@ function PlayerContent() {
   if (!currentItem) return <div className="text-white flex items-center justify-center h-full">Updating playlist…</div>;
 
   const opacity = fadeState === 'visible' ? 1 : 0;
+  console.log(`[PLAYER DEBUG] Rendering idx=${currentIndex}, type=${currentItem.type}, name=${currentItem.name}, url=${currentItem.url}, fadeState=${fadeState}`);
 
   return (
     <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
@@ -262,13 +269,15 @@ function PlayerContent() {
       <div
         style={{ opacity, transition: 'opacity 0.3s ease-in-out', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        {currentItem.type === 'IMAGE' ? (
-          <img src={currentItem.url} className="w-full h-full object-contain" alt="display" />
+        {currentItem.type === 'WIDGET' ? (
+          <WidgetRenderer widgetConfig={currentItem.widgetConfig!} />
+        ) : currentItem.type === 'IMAGE' ? (
+          <img src={currentItem.url!} className="w-full h-full object-contain" alt="display" />
         ) : (
           <video
             key={currentItem.id}
             ref={videoRef}
-            src={currentItem.url}
+            src={currentItem.url!}
             className="w-full h-full object-contain"
             autoPlay
             muted={isMuted}
@@ -293,7 +302,7 @@ function PlayerContent() {
       </div>
 
       {/* Sound Toggle Button */}
-      {currentItem.type === 'VIDEO' && (
+      {currentItem.type === 'VIDEO' && currentItem.url && (
         <div className="absolute top-4 left-4 z-50 transition-all">
           <button
             onClick={toggleMute}
@@ -339,7 +348,7 @@ function PlayerContent() {
           <div
             className="h-1 bg-white/70 transition-all duration-200"
             style={{
-              width: currentItem.type === 'IMAGE'
+              width: currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET'
                 ? `${((currentItem.duration - imageTimeLeft) / currentItem.duration) * 100}%`
                 : `${videoProgress * 100}%`,
             }}
@@ -350,7 +359,7 @@ function PlayerContent() {
         <div className="flex items-center gap-4 px-6 py-4">
           <div className="flex items-center gap-3 bg-black/50 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full">
             <span className="text-white/50 text-[10px] font-black uppercase tracking-widest">
-              {currentItem.type === 'IMAGE' ? 'IMAGE' : 'VIDEO'}
+              {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : 'VIDEO'}
             </span>
             <span className="text-white/20">•</span>
             <span className="text-white/80 text-xs font-bold truncate max-w-[300px]">{currentItem.name}</span>
@@ -358,7 +367,7 @@ function PlayerContent() {
             <span className="text-white/50 text-[10px] font-black">
               {currentIndex + 1} / {playlist.length}
             </span>
-            {currentItem.type === 'IMAGE' && (
+            {(currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET') && (
               <>
                 <span className="text-white/20">•</span>
                 <span className="text-white/50 text-[10px] font-black">{imageTimeLeft}s</span>
@@ -369,8 +378,8 @@ function PlayerContent() {
       </div>
 
       {/* Preload next image */}
-      {playlist[(currentIndex + 1) % playlist.length]?.type === 'IMAGE' && (
-        <link rel="preload" as="image" href={playlist[(currentIndex + 1) % playlist.length].url} />
+      {playlist[(currentIndex + 1) % playlist.length]?.type === 'IMAGE' && playlist[(currentIndex + 1) % playlist.length]?.url && (
+        <link rel="preload" as="image" href={playlist[(currentIndex + 1) % playlist.length].url!} />
       )}
     </div>
   );

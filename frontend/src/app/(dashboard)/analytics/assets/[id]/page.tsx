@@ -16,6 +16,8 @@ interface Asset {
     id: string;
     name: string;
     type: string;
+    url: string;
+    thumbnailUrl: string | null;
 }
 
 interface DailyTrend {
@@ -150,15 +152,29 @@ export default function AssetAnalyticsDetailPage() {
                     <ArrowLeft className="w-4 h-4 mr-2" /> 回到總覽
                 </Button>
 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">{details.asset.name}</h1>
-                            <span className="px-3 py-1 bg-[#E8F5E9] text-[#1A5336] text-xs font-bold rounded-full">
-                                {details.asset.type}
-                            </span>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                    <div className="flex items-start gap-5">
+                        <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white shrink-0 group">
+                            <img 
+                                src={details.asset.thumbnailUrl || details.asset.url} 
+                                alt={details.asset.name}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                            {details.asset.type === 'VIDEO' && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                                    <PlayCircle className="w-6 h-6 text-white drop-shadow-md" />
+                                </div>
+                            )}
                         </div>
-                        <p className="text-slate-500 mt-1">單一素材詳細成效報告</p>
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">{details.asset.name}</h1>
+                                <span className="px-3 py-1 bg-[#E8F5E9] text-[#1A5336] text-[10px] font-black uppercase tracking-wider rounded-full border border-[#1A5336]/10">
+                                    {details.asset.type}
+                                </span>
+                            </div>
+                            <p className="text-slate-500 mt-1 font-medium">單一素材詳細成效報告</p>
+                        </div>
                     </div>
                     <div className="flex gap-3">
                         <Button variant="outline" onClick={exportCSV} disabled={isExporting}>

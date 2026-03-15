@@ -60,7 +60,7 @@ export default function AssetLibrary() {
     textColor: '#ffffff',
     contentType: 'manual',
     newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-    marqueeSpeed: 25,
+    marqueeSpeed: 40,
   });
 
   const openWidgetModal = () => {
@@ -80,7 +80,7 @@ export default function AssetLibrary() {
       textColor: '#ffffff',
       contentType: 'manual',
       newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-      marqueeSpeed: 25,
+      marqueeSpeed: 40,
     });
     setShowWidgetModal(true);
   };
@@ -110,7 +110,7 @@ export default function AssetLibrary() {
       textColor: config.textColor ?? '#ffffff',
       contentType: config.contentType ?? 'manual',
       newsUrl: config.newsUrl ?? 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-      marqueeSpeed: config.marqueeSpeed ?? 25,
+      marqueeSpeed: config.marqueeSpeed ?? 40,
     });
     setShowWidgetModal(true);
   };
@@ -723,9 +723,14 @@ export default function AssetLibrary() {
                             <div className="flex flex-wrap gap-2">
                               {[
                                 { label: '🇹🇼 Google 新聞 (台灣)', url: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant' },
-                                { label: '🌎 BBC World News', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+                                { label: '🌟 Yahoo 新聞', url: 'https://tw.news.yahoo.com/rss/' },
+                                { label: '📰 聯合新聞網', url: 'https://udn.com/rssfeed/news/1' },
+                                { label: '🗽 自由時報', url: 'https://news.ltn.com.tw/rss/all.xml' },
+                                { label: '📺 TVBS 新聞', url: 'https://news.tvbs.com.tw/rss/news/' },
                                 { label: '💻 TechCrunch', url: 'https://techcrunch.com/feed/' },
-                                { label: '🚀 科技新報', url: 'https://technews.tw/feed/' }
+                                { label: '🚀 科技新報', url: 'https://technews.tw/feed/' },
+                                { label: '🧪 泛科學', url: 'https://pansci.asia/feed' },
+                                { label: '📊 MoneyDJ 財經', url: 'https://www.moneydj.com/KMDJ/RssFeed.aspx?topic=100' }
                               ].map(p => (
                                 <button
                                   key={p.url}
@@ -780,13 +785,13 @@ export default function AssetLibrary() {
                       <div className="flex justify-between items-center">
                         <label className="font-bold text-slate-700 text-sm">滾動速度</label>
                         <span className="text-[10px] font-black bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500">
-                          {widgetForm.marqueeSpeed}s {widgetForm.marqueeSpeed <= 15 ? '(快)' : widgetForm.marqueeSpeed >= 40 ? '(慢)' : ''}
+                          {widgetForm.marqueeSpeed}s {widgetForm.marqueeSpeed <= 25 ? '(快)' : widgetForm.marqueeSpeed >= 120 ? '(極慢)' : widgetForm.marqueeSpeed >= 60 ? '(慢)' : ''}
                         </span>
                       </div>
                       <input 
                         type="range" 
-                        min="10" 
-                        max="60" 
+                        min="15" 
+                        max="180" 
                         step="1"
                         value={widgetForm.marqueeSpeed}
                         onChange={e => setWidgetForm(f => ({ ...f, marqueeSpeed: parseInt(e.target.value) }))}

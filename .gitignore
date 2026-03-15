@@ -46,6 +46,7 @@ Thumbs.db
 # Temporary files
 temp/
 tmp/
+template/
 
 # Prisma
 # Note: Migrations ARE usually committed, but local dev database shouldn't be

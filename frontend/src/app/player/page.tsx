@@ -13,7 +13,7 @@ interface PlaylistItem {
   assetId?: string;
   scheduleId?: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO' | 'WIDGET';
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB';
   url: string | null;
   duration: number;
   widgetConfig?: WidgetConfig;
@@ -88,7 +88,7 @@ function PlayerContent() {
     const currentItem = playlist[currentIndex];
     if (currentItem && screenId && !isOffline) {
       // safely fallback duration for widgets
-      const durationPlay = currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET'
+      const durationPlay = currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB'
         ? currentItem.duration
         : (videoRef.current ? videoRef.current.currentTime : 0);
 
@@ -225,7 +225,7 @@ function PlayerContent() {
     if (!currentItem) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET') {
+    if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB') {
       const dur = currentItem.duration;
       imageStartRef.current = Date.now();
       setImageTimeLeft(dur);
@@ -271,6 +271,8 @@ function PlayerContent() {
       >
         {currentItem.type === 'WIDGET' ? (
           <WidgetRenderer widgetConfig={currentItem.widgetConfig!} />
+        ) : currentItem.type === 'WEB' ? (
+          <iframe src={currentItem.url!} className="w-full h-full border-0 bg-white" title={currentItem.name} />
         ) : currentItem.type === 'IMAGE' ? (
           <img src={currentItem.url!} className="w-full h-full object-contain" alt="display" />
         ) : (
@@ -348,7 +350,7 @@ function PlayerContent() {
           <div
             className="h-1 bg-white/70 transition-all duration-200"
             style={{
-              width: currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET'
+              width: currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB'
                 ? `${((currentItem.duration - imageTimeLeft) / currentItem.duration) * 100}%`
                 : `${videoProgress * 100}%`,
             }}
@@ -359,7 +361,7 @@ function PlayerContent() {
         <div className="flex items-center gap-4 px-6 py-4">
           <div className="flex items-center gap-3 bg-black/50 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full">
             <span className="text-white/50 text-[10px] font-black uppercase tracking-widest">
-              {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : 'VIDEO'}
+              {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : currentItem.type === 'WEB' ? 'WEB_PAGE' : 'VIDEO'}
             </span>
             <span className="text-white/20">•</span>
             <span className="text-white/80 text-xs font-bold truncate max-w-[300px]">{currentItem.name}</span>
@@ -367,7 +369,7 @@ function PlayerContent() {
             <span className="text-white/50 text-[10px] font-black">
               {currentIndex + 1} / {playlist.length}
             </span>
-            {(currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET') && (
+            {(currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB') && (
               <>
                 <span className="text-white/20">•</span>
                 <span className="text-white/50 text-[10px] font-black">{imageTimeLeft}s</span>

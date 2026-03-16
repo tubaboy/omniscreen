@@ -115,4 +115,5 @@ enum AssetType {
   IMAGE
   VIDEO
   WIDGET
+  WEB
 }

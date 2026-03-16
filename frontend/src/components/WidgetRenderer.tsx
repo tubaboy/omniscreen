@@ -131,7 +131,9 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
       setLoadingNews(true);
       try {
         const encodedRssUrl = encodeURIComponent(newsUrl);
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodedRssUrl}`);
+        // Add cache-buster to bypass browser/proxy cache
+        const cacheBuster = `&_t=${Date.now()}`;
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodedRssUrl}${cacheBuster}`);
         const data = await res.json();
         if (data.status === 'ok' && data.items) {
           // Decode simple HTML entities and join titles
@@ -156,7 +158,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
       }
     };
     fetchNews();
-    const t = setInterval(fetchNews, 30 * 60 * 1000);
+    const t = setInterval(fetchNews, 10 * 60 * 1000); // Updated from 30m to 10m
     return () => clearInterval(t);
   }, [contentType, newsUrl]);
 

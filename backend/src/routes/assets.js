@@ -280,13 +280,38 @@ async function assetRoutes(fastify, opts) {
     return { ...asset, size: asset.size.toString() };
   });
 
+  // POST URL Asset (no file upload)
+  fastify.post('/assets/url', async (request, reply) => {
+    const { name, url } = request.body || {};
+    if (!name || !url) return reply.code(400).send({ error: 'name and url required' });
+
+    const asset = await fastify.prisma.asset.create({
+      data: {
+        name,
+        type: 'WEB',
+        url: url,
+        thumbnailUrl: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`, // Simple favicon as thumbnail
+        size: BigInt(0),
+        mimeType: 'text/html',
+        orientation: 'LANDSCAPE',
+        duration: 30,
+      },
+    });
+    return { ...asset, size: asset.size.toString() };
+  });
+
   // PATCH Asset (Update tags / name / validity dates / widget config)
   fastify.patch('/assets/:id', async (request, reply) => {
     const { id } = request.params;
-    const { tags, name, validFrom, validUntil, widgetType, config, duration } = request.body || {};
+    const { tags, name, validFrom, validUntil, widgetType, config, duration, url } = request.body || {};
 
     let urlUpdate = {};
-    if (widgetType !== undefined || config !== undefined) {
+    if (url !== undefined) {
+      urlUpdate = { 
+        url,
+        thumbnailUrl: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`
+      };
+    } else if (widgetType !== undefined || config !== undefined) {
       // Re-fetch current to merge config
       const current = await fastify.prisma.asset.findUnique({ where: { id } });
       let currentConfig = {};

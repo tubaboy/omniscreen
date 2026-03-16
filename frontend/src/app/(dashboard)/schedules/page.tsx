@@ -118,8 +118,8 @@ function SortableQueueItem({
       {/* Name */}
       <p className="flex-1 text-xs font-bold text-slate-700 truncate">{asset.name}</p>
 
-      {/* Duration Input for Images and Widgets */}
-      {(asset.type === 'IMAGE' || asset.type === 'WIDGET') && (
+      {/* Duration Input for Images, Widgets and Web Assets */}
+      {(asset.type === 'IMAGE' || asset.type === 'WIDGET' || asset.type === 'WEB') && (
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <Clock size={12} className="text-slate-400" />
           <input
@@ -249,7 +249,7 @@ export default function ScheduleManagement() {
     setDaysOfWeek((schedule as any).daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6]);
     setQueue(schedule.items.map(item => ({
       ...item.asset,
-      durationForSchedule: (item as any).duration || item.asset.duration || 30, // Default to 30 for widgets if unknown
+      durationForSchedule: (item as any).duration || item.asset.duration || 30, // Default to 30 for widgets/web if unknown
     })));
     setIsActive(schedule.isActive);
     window.scrollTo({ top: 0, behavior: 'smooth' });

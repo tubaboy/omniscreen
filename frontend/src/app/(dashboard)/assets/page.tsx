@@ -63,6 +63,13 @@ export default function AssetLibrary() {
     marqueeSpeed: 40,
   });
 
+  // URL Modal State
+  const [showUrlModal, setShowUrlModal] = useState(false);
+  const [editingUrlAsset, setEditingUrlAsset] = useState<any | null>(null);
+  const [urlSaving, setUrlSaving] = useState(false);
+  const [urlForm, setUrlForm] = useState({ name: '', url: '' });
+
+
   const openWidgetModal = () => {
     setEditingWidget(null);
     setWidgetForm({
@@ -156,6 +163,39 @@ export default function AssetLibrary() {
       alert('儲存失敗');
     } finally {
       setWidgetSaving(false);
+    }
+  };
+  
+  const openUrlModal = () => {
+    setEditingUrlAsset(null);
+    setUrlForm({ name: '', url: '' });
+    setShowUrlModal(true);
+  };
+
+  const openEditUrlModal = (asset: any) => {
+    setEditingUrlAsset(asset);
+    setUrlForm({ name: asset.name, url: asset.url });
+    setShowUrlModal(true);
+  };
+
+  const handleUrlSubmit = async () => {
+    if (!urlForm.name.trim() || !urlForm.url.trim()) return alert('請輸入名稱與網址');
+    setUrlSaving(true);
+    try {
+      if (editingUrlAsset) {
+        const res = await api.patch(`/assets/${editingUrlAsset.id}`, urlForm);
+        setAssets(prev => prev.map(a => a.id === editingUrlAsset.id ? res.data : a));
+      } else {
+        const res = await api.post('/assets/url', urlForm);
+        setAssets(prev => [res.data, ...prev]);
+      }
+      setShowUrlModal(false);
+      setUrlForm({ name: '', url: '' });
+    } catch (err) {
+      console.error(err);
+      alert('儲存失敗');
+    } finally {
+      setUrlSaving(false);
     }
   };
 
@@ -262,6 +302,15 @@ export default function AssetLibrary() {
               <Zap size={18} />
               建立動態看板
             </button>
+            {/* URL Button */}
+            <button
+              onClick={openUrlModal}
+              className="group relative inline-flex items-center gap-2 px-6 py-4 bg-sky-600 text-white rounded-2xl font-bold shadow-xl shadow-sky-900/20 hover:bg-sky-700 transition-all overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+              <CloudSun size={18} />
+              新增網頁/URL
+            </button>
             {/* Upload Button */}
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -363,6 +412,41 @@ export default function AssetLibrary() {
                 <div className="p-3 bg-white/5 border-t border-white/10">
                   <p className="text-xs font-bold text-white truncate">{asset.name}</p>
                   <p className="text-[10px] text-slate-400 font-bold mt-0.5">{asset.duration ?? 10}秒 顯示</p>
+                </div>
+              </div>
+            );
+          }
+
+          // ─── Web/URL Card ───────────────────────────────────────
+          if (asset.type === 'WEB') {
+            return (
+              <div key={asset.id} className="break-inside-avoid group bg-slate-100 border border-slate-200 rounded-[28px] overflow-hidden hover:shadow-2xl hover:shadow-sky-500/30 hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col cursor-pointer">
+                <div className="relative overflow-hidden aspect-video bg-white flex flex-col items-center justify-center gap-2 p-4">
+                  {asset.thumbnailUrl ? (
+                    <img src={asset.thumbnailUrl} alt={asset.name} className="w-16 h-16 object-contain" />
+                  ) : (
+                    <span style={{ fontSize: 40 }} className="relative z-10 drop-shadow-2xl">🌐</span>
+                  )}
+                  <span className="text-slate-900 font-black text-[10px] relative z-10 tracking-widest uppercase truncate max-w-full px-2">{new URL(asset.url).hostname}</span>
+                  <div className="absolute inset-0 bg-sky-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditUrlModal(asset); }}
+                        className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
+                      >
+                        <Edit3 size={14} /> 編輯
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }}
+                        className="bg-red-500/20 backdrop-blur-md text-red-200 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs"
+                      >
+                        刪除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-white border-t border-slate-100">
+                  <p className="text-xs font-bold text-slate-800 truncate">{asset.name}</p>
                 </div>
               </div>
             );
@@ -544,6 +628,8 @@ export default function AssetLibrary() {
             <div className="w-full h-full flex items-center justify-center">
               {previewAsset.type === 'VIDEO' ? (
                 <video src={previewAsset.url} controls autoPlay className="max-w-full max-h-full" />
+              ) : previewAsset.type === 'WEB' ? (
+                <iframe src={previewAsset.url} className="w-full h-full border-0 bg-white" title={previewAsset.name} />
               ) : (
                 <img src={previewAsset.url} alt={previewAsset.name} className="max-w-full max-h-full object-contain" />
               )}
@@ -819,6 +905,58 @@ export default function AssetLibrary() {
                     <>✨ {editingWidget ? '儲存變更' : '建立專屬動態看板'}</>
                   )}
                 </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──── URL Modal ──── */}
+      {showUrlModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setShowUrlModal(false)}
+        >
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" />
+          <div
+            className="relative w-full max-w-lg bg-white rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-400"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`px-8 py-6 shrink-0 flex items-center justify-between text-white ${editingUrlAsset ? 'bg-amber-500' : 'bg-sky-600'}`}>
+              <div>
+                <h2 className="font-black text-xl">{editingUrlAsset ? '修改網頁素材' : '新增網頁素材'}</h2>
+                <p className={`${editingUrlAsset ? 'text-amber-50' : 'text-sky-100'} text-xs mt-1`}>內嵌外部網址、Dashboard 或即時網頁內容</p>
+              </div>
+              <button onClick={() => setShowUrlModal(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">名稱</label>
+                <input
+                  type="text"
+                  value={urlForm.name}
+                  onChange={e => setUrlForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-sky-400 transition-all shadow-sm"
+                  placeholder="例如：公司形象網站"
+                />
+              </div>
+              <div>
+                <input
+                  type="url"
+                  value={urlForm.url}
+                  onChange={e => setUrlForm(f => ({ ...f, url: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-sky-400 transition-all shadow-sm"
+                  placeholder="https://example.com"
+                />
+              </div>
+                <button
+                onClick={handleUrlSubmit}
+                disabled={urlSaving || !urlForm.name.trim() || !urlForm.url.trim()}
+                className={`w-full py-4 text-white font-black rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl mt-4 ${editingUrlAsset ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-900/20' : 'bg-sky-600 hover:bg-sky-700 shadow-sky-900/20'}`}
+              >
+                {urlSaving ? '儲存中...' : (editingUrlAsset ? '儲存變更' : '儲存網頁素材')}
+              </button>
             </div>
           </div>
         </div>

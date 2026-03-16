@@ -31,6 +31,7 @@ function PlayerContent() {
   const [isOffline, setIsOffline] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [autoPlayError, setAutoPlayError] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // HUD state
   const [serverHud, setServerHud] = useState(true);
@@ -101,20 +102,29 @@ function PlayerContent() {
       }).catch(err => console.error('Failed to log playback', err));
     }
 
-    if (playlist.length <= 1) return; // If only 1 item, just stay
+    // Special case: Single video looping seamless (avoid black flash and browser autoplay hurdles)
+    if (playlist.length === 1 && currentItem?.type === 'VIDEO') {
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(err => {
+          console.warn('Seamless loop play failed, trying muted', err);
+          setIsMuted(true);
+          if (videoRef.current) videoRef.current.play().catch(console.error);
+        });
+      }
+      return;
+    }
 
     if (timerRef.current) clearTimeout(timerRef.current);
     pendingIndexRef.current = nextIndex;
+    setRefreshKey(prev => prev + 1);
     setFadeState('fading-out');
   }, [fadeState, playlist, currentIndex, screenId, isOffline]);
 
   const next = useCallback(() => {
-    setCurrentIndex(prev => {
-      const nextIdx = playlist.length > 0 ? (prev + 1) % playlist.length : 0;
-      transitionTo(nextIdx);
-      return prev;
-    });
-  }, [playlist.length, transitionTo]);
+    const nextIdx = playlist.length > 0 ? (currentIndex + 1) % playlist.length : 0;
+    transitionTo(nextIdx);
+  }, [playlist.length, currentIndex, transitionTo]);
 
   useEffect(() => {
     let currentInterval = 10000;
@@ -226,6 +236,7 @@ function PlayerContent() {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB') {
+      if (playlist.length <= 1) return; // Don't loop if only 1 static item
       const dur = currentItem.duration;
       imageStartRef.current = Date.now();
       setImageTimeLeft(dur);
@@ -267,6 +278,7 @@ function PlayerContent() {
 
       {/* Media Layer */}
       <div
+        key={`${currentIndex}-${refreshKey}`}
         style={{ opacity, transition: 'opacity 0.3s ease-in-out', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         {currentItem.type === 'WIDGET' ? (
@@ -277,11 +289,12 @@ function PlayerContent() {
           <img src={currentItem.url!} className="w-full h-full object-contain" alt="display" />
         ) : (
           <video
-            key={currentItem.id}
+            key={`${currentItem.id}-${refreshKey}`}
             ref={videoRef}
             src={currentItem.url!}
             className="w-full h-full object-contain"
             autoPlay
+            playsInline
             muted={isMuted}
             onEnded={() => transitionTo((currentIndex + 1) % playlist.length)}
             onError={() => transitionTo((currentIndex + 1) % playlist.length)}

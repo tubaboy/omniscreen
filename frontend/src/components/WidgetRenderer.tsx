@@ -130,10 +130,15 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     const fetchNews = async () => {
       setLoadingNews(true);
       try {
-        const encodedRssUrl = encodeURIComponent(newsUrl);
-        // Add cache-buster to bypass browser/proxy cache
-        const cacheBuster = `&_t=${Date.now()}`;
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodedRssUrl}${cacheBuster}`);
+        // Bypass rss2json discovery cache (FREE tier has 1 hour cache)
+        // We add a cache buster to the SOURCE URL itself so the server thinks it's a new request
+        const urlObj = new URL(newsUrl);
+        urlObj.searchParams.set('_ccb', Date.now().toString());
+        const sourceUrlWithBuster = urlObj.toString();
+        
+        const encodedRssUrl = encodeURIComponent(sourceUrlWithBuster);
+        // Add cache-buster to the proxy request as well
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodedRssUrl}&_t=${Date.now()}`);
         const data = await res.json();
         if (data.status === 'ok' && data.items) {
           // Decode simple HTML entities and join titles

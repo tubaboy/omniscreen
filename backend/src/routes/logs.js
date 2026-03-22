@@ -17,6 +17,12 @@ async function logsRoutes(fastify, options) {
         }
     }, async (request, reply) => {
         const data = request.body;
+
+        // Anti-spoofing: if playerAuth set a screenId, body must match
+        if (request.playerScreenId && request.playerScreenId !== data.screenId) {
+            return reply.code(403).send({ error: 'Screen ID mismatch' });
+        }
+
         try {
             const log = await fastify.prisma.playbackLog.create({
                 data: {

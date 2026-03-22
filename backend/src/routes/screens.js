@@ -38,19 +38,7 @@ async function screenRoutes(fastify, opts) {
     }
   });
 
-  // Heartbeat (Update lastSeen)
-  fastify.post('/screens/:id/heartbeat', async (request, reply) => {
-    try {
-      const { id } = request.params;
-      await fastify.prisma.screen.update({
-        where: { id },
-        data: { lastSeen: new Date() },
-      });
-      return { status: 'ok' };
-    } catch (err) {
-      return reply.code(500).send({ error: 'Heartbeat failed' });
-    }
-  });
+  // NOTE: Heartbeat is handled in routes/player-heartbeat.js (behind playerAuth)
 
   // DELETE Screen
   fastify.delete('/screens/:id', async (request, reply) => {

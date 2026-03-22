@@ -3,6 +3,11 @@ async function playlistRoutes(fastify, opts) {
   fastify.get('/playlists/:screenId', async (request, reply) => {
     const { screenId } = request.params;
 
+    // If playerAuth verified a screenId, ensure it matches path param (cross-screen protection)
+    if (request.playerScreenId && request.playerScreenId !== screenId) {
+      return reply.code(403).send({ error: 'Screen ID mismatch' });
+    }
+
     // Force Asia/Taipei timezone for all time comparisons
     const now = new Date();
     // Taipei is UTC+8. No DST in Taiwan.

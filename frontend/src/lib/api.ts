@@ -41,7 +41,7 @@ export interface Screen {
 export interface Asset {
   id: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB';
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE';
   url: string;
   thumbnailUrl?: string;
   orientation: 'LANDSCAPE' | 'PORTRAIT';

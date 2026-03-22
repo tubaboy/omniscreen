@@ -116,4 +116,5 @@ enum AssetType {
   VIDEO
   WIDGET
   WEB
+  YOUTUBE
 }

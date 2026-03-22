@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import api, { Asset } from '@/lib/api';
 import { useRouter } from 'next/navigation';
-import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, X, Play, Eye, Tag, BarChart3, Zap, Clock, CloudSun, Megaphone, Edit3 } from 'lucide-react';
+import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, X, Play, Eye, Tag, BarChart3, Zap, Clock, CloudSun, Megaphone, Edit3, CheckSquare, Calendar, LayoutGrid, List as ListIcon, Filter, Crop, Youtube } from 'lucide-react';
+import ImageCropperModal from './components/ImageCropperModal';
+import YouTubeAssetModal from './components/YouTubeAssetModal';
 
 type WidgetType = 'DASHBOARD';
 
@@ -41,6 +43,88 @@ export default function AssetLibrary() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  // Filters & View Mode
+  const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
+  const [filterType, setFilterType] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+
+  // Bulk Selection State
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+  
+  const toggleSelection = (id: string) => {
+    setSelectedAssetIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedAssetIds.size === filtered.length) {
+      setSelectedAssetIds(new Set());
+    } else {
+      setSelectedAssetIds(new Set(filtered.map(a => a.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedAssetIds);
+    const inUse = assets.filter(a => ids.includes(a.id) && (a as any).usageCount > 0);
+    if (inUse.length > 0) {
+      alert(`無法刪除！選取範圍內有 ${inUse.length} 個素材正在排程中使用。請先取消勾選它們。`);
+      return;
+    }
+    if (!confirm(`確定要刪除選取的 ${ids.length} 個素材嗎？`)) return;
+    try {
+      await Promise.all(ids.map(id => api.delete(`/assets/${id}`)));
+      setSelectedAssetIds(new Set());
+      fetchAssets();
+    } catch (err: any) {
+      alert('部分刪除失敗');
+      fetchAssets();
+    }
+  };
+
+  const handleBulkAddTags = async () => {
+    const newTag = prompt('請輸入要批次貼上的標籤名稱：');
+    if (!newTag || !newTag.trim()) return;
+    const tag = newTag.trim();
+    const ids = Array.from(selectedAssetIds);
+    try {
+      await Promise.all(ids.map(id => {
+        const asset = assets.find(a => a.id === id) as any;
+        const existingTags = asset.tags || [];
+        if (!existingTags.includes(tag)) {
+          return api.patch(`/assets/${id}`, { tags: [...existingTags, tag] });
+        }
+        return Promise.resolve();
+      }));
+      setSelectedAssetIds(new Set());
+      fetchAssets();
+    } catch (err) {
+      alert('批次標籤失敗');
+    }
+  };
+
+  const handleBulkValidity = async () => {
+    const validFromStr = prompt('請輸入上架日期 (YYYY-MM-DD)，留空代表不限：\n若要清除現有設定也請留空', '');
+    if (validFromStr === null) return;
+    const validUntilStr = prompt('請輸入下架日期 (YYYY-MM-DD)，留空代表不限：\n若要清除現有設定也請留空', '');
+    if (validUntilStr === null) return;
+
+    const vf = validFromStr.trim() ? validFromStr.trim() : null;
+    const vu = validUntilStr.trim() ? validUntilStr.trim() : null;
+    const ids = Array.from(selectedAssetIds);
+    try {
+      await Promise.all(ids.map(id => api.patch(`/assets/${id}`, { validFrom: vf, validUntil: vu })));
+      setSelectedAssetIds(new Set());
+      fetchAssets();
+    } catch (err) {
+      alert('批次效期失敗');
+    }
+  };
+
   // Widget Modal State
   const [showWidgetModal, setShowWidgetModal] = useState(false);
   const [editingWidget, setEditingWidget] = useState<any | null>(null);
@@ -63,11 +147,61 @@ export default function AssetLibrary() {
     marqueeSpeed: 40,
   });
 
+  // Image Cropper State
+  const [showImageCropper, setShowImageCropper] = useState(false);
+  const [editingImage, setEditingImage] = useState<any | null>(null);
+
+  const openImageCropper = (asset: any) => {
+    setEditingImage(asset);
+    setShowImageCropper(true);
+  };
+
+  const handleSaveCrop = async (croppedBlob: Blob, newName: string) => {
+    try {
+      const file = new File([croppedBlob], newName, { type: 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'IMAGE');
+      if (editingImage?.tags) {
+        formData.append('tags', JSON.stringify(editingImage.tags));
+      }
+      formData.append('duration', `${editingImage?.duration || 10}`);
+
+      await api.post('/assets', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      fetchAssets();
+    } catch (err) {
+      console.error('Failed to upload cropped image:', err);
+      alert('上傳裁切圖片失敗');
+    }
+  };
+
   // URL Modal State
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [editingUrlAsset, setEditingUrlAsset] = useState<any | null>(null);
   const [urlSaving, setUrlSaving] = useState(false);
   const [urlForm, setUrlForm] = useState({ name: '', url: '' });
+
+  // YouTube Modal State
+  const [showYoutubeModal, setShowYoutubeModal] = useState(false);
+  const [editingYouTubeAsset, setEditingYouTubeAsset] = useState<any | null>(null);
+
+  const openEditYouTubeModal = (asset: any) => {
+    setEditingYouTubeAsset(asset);
+    setShowYoutubeModal(true);
+  };
+
+  const handleSaveYouTube = async (name: string, url: string) => {
+    if (editingYouTubeAsset) {
+      await api.patch(`/assets/${editingYouTubeAsset.id}`, { name, url });
+      setEditingYouTubeAsset(null);
+      fetchAssets();
+    } else {
+      await api.post('/assets/youtube', { name, url });
+      fetchAssets();
+    }
+  };
 
 
   const openWidgetModal = () => {
@@ -237,13 +371,24 @@ export default function AssetLibrary() {
   };
 
   const deleteAsset = async (id: string) => {
-    if (!confirm('確定要刪除此素材嗎？這可能會影響正在播放的排程。')) return;
+    const asset = assets.find(a => a.id === id) as any;
+    if (asset?.usageCount > 0) {
+      alert(`無法刪除！此素材目前正在以下排程中使用：\n\n${(asset.schedules || []).join('\n')}\n\n請先將其從排程中移除。`);
+      return;
+    }
+
+    if (!confirm('確定要刪除此素材嗎？')) return;
     try {
       await api.delete(`/assets/${id}`);
       const res = await api.get('/assets');
       setAssets(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        alert(err.response.data.error || '無法刪除，因素材正在使用中。');
+      } else {
+        console.error(err);
+        alert('刪除失敗');
+      }
     }
   };
 
@@ -261,6 +406,22 @@ export default function AssetLibrary() {
     setAssets(prev => prev.map(a => a.id === id ? { ...a, tags: newTags } : a));
   };
 
+  const filtered = useMemo(() => {
+    return assets.filter(a => {
+      const q = searchQuery.toLowerCase();
+      const matchSearch = String(a.name).toLowerCase().includes(q) || 
+                          ((a as any).tags || []).some((t: string) => t.toLowerCase().includes(q));
+      
+      const matchType = filterType === 'ALL' || a.type === filterType;
+      
+      let matchStatus = true;
+      if (filterStatus === 'IN_USE') matchStatus = ((a as any).usageCount || 0) > 0;
+      else if (filterStatus === 'UNUSED') matchStatus = (!((a as any).usageCount || 0) || (a as any).usageCount === 0);
+
+      return matchSearch && matchType && matchStatus;
+    });
+  }, [searchQuery, assets, filterType, filterStatus]);
+  
   const updateValidity = async (id: string, validFrom: string | null, validUntil: string | null) => {
     await api.patch(`/assets/${id}`, { validFrom, validUntil });
     setAssets(prev => prev.map(a => a.id === id ? { ...a, validFrom, validUntil } as any : a));
@@ -272,12 +433,6 @@ export default function AssetLibrary() {
     assets.forEach(a => (a as any).tags?.forEach((t: string) => set.add(t)));
     return Array.from(set).sort();
   }, [assets]);
-
-  const filtered = useMemo(() => assets.filter(a => {
-    const matchSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchTag = !filterTag || ((a as any).tags || []).includes(filterTag);
-    return matchSearch && matchTag;
-  }), [assets, searchQuery, filterTag]);
 
   useEffect(() => {
     fetchAssets();
@@ -310,6 +465,15 @@ export default function AssetLibrary() {
               <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
               <CloudSun size={18} />
               新增網頁/URL
+            </button>
+            {/* YouTube Button */}
+            <button
+              onClick={() => setShowYoutubeModal(true)}
+              className="group relative inline-flex items-center gap-2 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold shadow-xl shadow-red-900/20 hover:bg-red-700 transition-all overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+              <Youtube size={18} />
+              YouTube
             </button>
             {/* Upload Button */}
             <button
@@ -369,6 +533,167 @@ export default function AssetLibrary() {
         ))}
       </div>
 
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+        <div className="flex items-center gap-4 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-slate-400" />
+            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-white border-2 border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-700 outline-none focus:border-violet-500 cursor-pointer">
+              <option value="ALL">全部類型</option>
+              <option value="IMAGE">圖片 (Image)</option>
+              <option value="VIDEO">影片 (Video)</option>
+              <option value="WIDGET">微件 (Widget)</option>
+              <option value="WEB">網頁 (Web)</option>
+              <option value="YOUTUBE">YouTube</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-white border-2 border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-700 outline-none focus:border-violet-500 cursor-pointer">
+              <option value="ALL">所有狀態</option>
+              <option value="IN_USE">🔗 運用中</option>
+              <option value="UNUSED">👻 閒置/未排程</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 bg-slate-200/50 p-1 rounded-xl shrink-0">
+          <button onClick={() => setViewMode('GRID')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'GRID' ? 'bg-white shadow text-violet-600' : 'text-slate-500 hover:text-slate-700'}`}>
+            <LayoutGrid size={18} />
+          </button>
+          <button onClick={() => setViewMode('LIST')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white shadow text-violet-600' : 'text-slate-500 hover:text-slate-700'}`}>
+            <ListIcon size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Bulk Action FAB (Floating Action Bar) */}
+      {selectedAssetIds.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-900 border border-slate-700/50 shadow-2xl shadow-slate-900/50 rounded-full px-6 py-4 flex items-center gap-6 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="flex items-center gap-3 border-r border-slate-700 pr-6">
+            <div className="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center font-bold text-sm text-white shadow-inner">
+              {selectedAssetIds.size}
+            </div>
+            <span className="font-bold text-sm text-slate-300">已選取</span>
+            <button
+               onClick={() => setSelectedAssetIds(new Set())}
+               className="ml-2 text-xs font-bold text-slate-500 hover:text-white transition-all underline outline-none"
+             >取消全選</button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleBulkAddTags} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+              <Tag size={16}/> 批次加標籤
+            </button>
+            <button onClick={handleBulkValidity} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+              <Calendar size={16}/> 批次上下架
+            </button>
+            <button onClick={handleBulkDelete} className="ml-2 px-4 py-2 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+              <Trash2 size={16}/> 批次安全刪除
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'LIST' ? (
+        <div className="bg-white rounded-[28px] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold tracking-wider uppercase">
+                  <th className="p-4 w-12 text-center">
+                    <input type="checkbox" onChange={handleSelectAll} checked={selectedAssetIds.size > 0 && selectedAssetIds.size === filtered.length} className="w-4 h-4 rounded border-slate-300 text-violet-600 cursor-pointer"/>
+                  </th>
+                  <th className="p-4 w-16">預覽</th>
+                  <th className="p-4">素材名稱</th>
+                  <th className="p-4">類型</th>
+                  <th className="p-4">狀態</th>
+                  <th className="p-4">標籤 / 效期</th>
+                  <th className="p-4 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map(asset => (
+                  <tr key={asset.id} onClick={() => toggleSelection(asset.id)} className={`group hover:bg-slate-50 transition-all cursor-pointer ${selectedAssetIds.has(asset.id) ? 'bg-violet-50/50' : ''}`}>
+                    <td className="p-4 text-center">
+                      <input type="checkbox" checked={selectedAssetIds.has(asset.id)} onChange={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} onClick={e => e.stopPropagation()} className="w-4 h-4 rounded border-slate-300 text-violet-600 cursor-pointer"/>
+                    </td>
+                    <td className="p-4">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-900 border border-slate-200/50 shadow-inner flex flex-col items-center justify-center shrink-0">
+                        {asset.thumbnailUrl ? (
+                          <img src={asset.thumbnailUrl} className="w-full h-full object-cover" />
+                        ) : asset.type === 'WIDGET' ? (
+                          <span className="text-xl">🪄</span>
+                        ) : asset.type === 'WEB' ? (
+                          <span className="text-xl">🌐</span>
+                        ) : asset.type === 'IMAGE' ? (
+                           <img src={asset.url} className="w-full h-full object-cover" />
+                        ) : (
+                           <FileVideo className="text-slate-500" size={20} />
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <p className="font-bold text-slate-800 break-all line-clamp-2 max-w-[200px]">{asset.name}</p>
+                    </td>
+                    <td className="p-4">
+                      <span className="px-2 py-1 bg-slate-100 text-slate-500 text-[10px] font-black tracking-wider uppercase rounded">{asset.type}</span>
+                    </td>
+                    <td className="p-4">
+                      {((asset as any).usageCount || 0) > 0 ? (
+                        <span className="px-2.5 py-1 bg-green-100/80 text-green-700 text-xs rounded-lg font-bold">🔗 運用中 ({((asset as any).usageCount)})</span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-500 text-xs rounded-lg font-bold">👻 閒置</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1 mb-1.5">
+                        {((asset as any).tags || []).map((t: string) => <span key={`tag-${t}`} className="px-1.5 py-0.5 bg-slate-200 rounded text-[10px] font-bold text-slate-600">{t}</span>)}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-bold flex flex-col">
+                        {(asset as any).validFrom && <span>開始: {new Date((asset as any).validFrom).toLocaleDateString()}</span>}
+                        {(asset as any).validUntil && <span>結束: {new Date((asset as any).validUntil).toLocaleDateString()}</span>}
+                      </div>
+                    </td>
+                    <td className="p-4 text-right space-x-2 whitespace-nowrap">
+                       {asset.type === 'IMAGE' || asset.type === 'VIDEO' ? (
+                          <button onClick={(e) => { e.stopPropagation(); window.open(asset.url, '_blank') }} className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all" title="預覽">
+                            <Eye size={16}/>
+                          </button>
+                       ) : null}
+                       {asset.type === 'IMAGE' ? (
+                          <button onClick={(e) => { e.stopPropagation(); openImageCropper(asset); }} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="裁切編輯">
+                            <Crop size={16}/>
+                          </button>
+                       ) : null}
+                       {asset.type === 'WIDGET' ? (
+                          <button onClick={(e) => { e.stopPropagation(); openEditWidgetModal(asset); }} className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all" title="編輯微件">
+                            <Edit3 size={16}/>
+                          </button>
+                       ) : null}
+                       {asset.type === 'WEB' ? (
+                          <button onClick={(e) => { e.stopPropagation(); openEditUrlModal(asset); }} className="p-2 text-slate-400 hover:text-sky-500 hover:bg-sky-50 rounded-lg transition-all" title="編輯網頁">
+                            <Edit3 size={16}/>
+                          </button>
+                       ) : null}
+                       {asset.type === 'YOUTUBE' ? (
+                          <button onClick={(e) => { e.stopPropagation(); openEditYouTubeModal(asset); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="編輯 YouTube">
+                            <Youtube size={16}/>
+                          </button>
+                       ) : null}
+                      <button onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="刪除">
+                        <Trash2 size={16}/>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-slate-400 font-bold">沒有符合過濾條件的素材</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
       <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-6 space-y-6">
         {/* Special Add Box */}
         <div className="break-inside-avoid">
@@ -387,8 +712,16 @@ export default function AssetLibrary() {
           // ─── Widget Card ───────────────────────────────────────
           if (asset.type === 'WIDGET') {
             return (
-              <div key={asset.id} className="break-inside-avoid group bg-slate-900 border border-slate-700 rounded-[28px] overflow-hidden hover:shadow-2xl hover:shadow-violet-500/30 hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col cursor-pointer">
-                <div className="relative overflow-hidden aspect-video bg-black flex flex-col items-center justify-center gap-2 p-4">
+              <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-violet-500 bg-violet-900/40 ring-4 ring-violet-500/20' : 'bg-slate-900 border-slate-700 hover:shadow-violet-500/30'}`}>
+                
+                {/* Checkbox Overlay */}
+                <div className={`absolute top-4 left-4 z-40 transition-all ${selectedAssetIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div onClick={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} className={`w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer transition-all border-2 ${selectedAssetIds.has(asset.id) ? 'bg-violet-600 border-violet-600' : 'bg-black/40 backdrop-blur-md border-white/50 hover:border-white'}`}>
+                    {selectedAssetIds.has(asset.id) && <CheckSquare size={16} className="text-white" />}
+                  </div>
+                </div>
+
+                <div className="relative overflow-hidden aspect-video bg-black flex flex-col items-center justify-center gap-2 p-4 cursor-pointer">
                   <div className="absolute inset-0 bg-gradient-to-br from-violet-600/40 via-blue-900/40 to-emerald-600/40 opacity-80 blur-xl pointer-events-none" />
                   <span style={{ fontSize: 40 }} className="relative z-10 drop-shadow-2xl">🪄</span>
                   <span className="text-white font-black text-sm relative z-10 tracking-widest">DASHBOARD</span>
@@ -410,7 +743,14 @@ export default function AssetLibrary() {
                   </div>
                 </div>
                 <div className="p-3 bg-white/5 border-t border-white/10">
-                  <p className="text-xs font-bold text-white truncate">{asset.name}</p>
+                  <div className="flex justify-between items-start">
+                    <p className="text-xs font-bold text-white truncate pr-2">{asset.name}</p>
+                    {((asset as any).usageCount || 0) > 0 ? (
+                      <span className="text-[9px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold shrink-0 cursor-help" title={`使用中的排程：\n${((asset as any).schedules || []).join('\n')}`}>🔗 {((asset as any).usageCount || 0)}</span>
+                    ) : (
+                      <span className="text-[9px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">👻 閒置</span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-slate-400 font-bold mt-0.5">{asset.duration ?? 10}秒 顯示</p>
                 </div>
               </div>
@@ -420,8 +760,16 @@ export default function AssetLibrary() {
           // ─── Web/URL Card ───────────────────────────────────────
           if (asset.type === 'WEB') {
             return (
-              <div key={asset.id} className="break-inside-avoid group bg-slate-100 border border-slate-200 rounded-[28px] overflow-hidden hover:shadow-2xl hover:shadow-sky-500/30 hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col cursor-pointer">
-                <div className="relative overflow-hidden aspect-video bg-white flex flex-col items-center justify-center gap-2 p-4">
+              <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-sky-500 bg-sky-50 shadow-2xl shadow-sky-500/20 ring-4 ring-sky-500/20' : 'bg-slate-100 border-slate-200 hover:shadow-2xl hover:shadow-sky-500/30'}`}>
+                
+                {/* Checkbox Overlay */}
+                <div className={`absolute top-4 left-4 z-40 transition-all ${selectedAssetIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div onClick={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} className={`w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer transition-all border-2 ${selectedAssetIds.has(asset.id) ? 'bg-sky-500 border-sky-500' : 'bg-black/20 backdrop-blur-md border-black/30 hover:border-black/50'}`}>
+                    {selectedAssetIds.has(asset.id) && <CheckSquare size={16} className="text-white" />}
+                  </div>
+                </div>
+
+                <div className="relative overflow-hidden aspect-video bg-white flex flex-col items-center justify-center gap-2 p-4 cursor-pointer">
                   {asset.thumbnailUrl ? (
                     <img src={asset.thumbnailUrl} alt={asset.name} className="w-16 h-16 object-contain" />
                   ) : (
@@ -446,7 +794,14 @@ export default function AssetLibrary() {
                   </div>
                 </div>
                 <div className="p-3 bg-white border-t border-slate-100">
-                  <p className="text-xs font-bold text-slate-800 truncate">{asset.name}</p>
+                  <div className="flex justify-between items-start">
+                    <p className="text-xs font-bold text-slate-800 truncate pr-2">{asset.name}</p>
+                    {((asset as any).usageCount || 0) > 0 ? (
+                      <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold shrink-0 cursor-help" title={`使用中的排程：\n${((asset as any).schedules || []).join('\n')}`}>🔗 {((asset as any).usageCount || 0)}</span>
+                    ) : (
+                      <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">👻 閒置</span>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -454,8 +809,16 @@ export default function AssetLibrary() {
 
           // ─── Media Card (IMAGE / VIDEO) ────────────────────────
           return (
-            <div key={asset.id} className="break-inside-avoid group bg-white border border-slate-200/60 rounded-[28px] overflow-hidden hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col cursor-pointer">
-              <div className={`relative overflow-hidden bg-slate-100 ${asset.orientation === 'PORTRAIT' ? 'aspect-[9/16]' : 'aspect-video'}`}>
+            <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-[#1A5336] bg-green-50 shadow-2xl shadow-green-500/20 ring-4 ring-[#1A5336]/20' : 'bg-white border-slate-200/60 hover:shadow-2xl hover:shadow-slate-200/50'}`}>
+              
+              {/* Checkbox Overlay */}
+              <div className={`absolute top-4 left-4 z-40 transition-all ${selectedAssetIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                <div onClick={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} className={`w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer transition-all border-2 ${selectedAssetIds.has(asset.id) ? 'bg-[#1A5336] border-[#1A5336]' : 'bg-black/20 backdrop-blur-md border-white/50 hover:border-white'}`}>
+                  {selectedAssetIds.has(asset.id) && <CheckSquare size={16} className="text-white" />}
+                </div>
+              </div>
+
+              <div className={`relative overflow-hidden bg-slate-100 cursor-pointer ${asset.orientation === 'PORTRAIT' ? 'aspect-[9/16]' : 'aspect-video'}`}>
                 {asset.type === 'IMAGE' || asset.thumbnailUrl ? (
                   <div className="relative w-full h-full">
                     <img src={asset.thumbnailUrl || asset.url} alt={asset.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
@@ -474,7 +837,7 @@ export default function AssetLibrary() {
                   </div>
                 )}
 
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-4 left-14 z-20">
                   <span className="px-3 py-1 bg-black/50 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-tighter rounded-full border border-white/20">
                     {asset.type === 'IMAGE' ? 'Image' : 'Video'}
                   </span>
@@ -486,33 +849,47 @@ export default function AssetLibrary() {
                   </span>
                 </div>
 
-                <div className="absolute inset-0 bg-[#1A5336]/90 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-6 translate-y-4 group-hover:translate-y-0 p-4 text-center">
-                  <p className="text-white text-xs font-bold leading-tight line-clamp-2 px-2 mb-2">{asset.name}</p>
-                  <div className="flex items-center gap-3">
+                <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4">
                     <button
-                      onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }}
-                      className="w-12 h-12 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl flex items-center justify-center hover:bg-white hover:text-[#1A5336] hover:scale-110 active:scale-95 transition-all shadow-xl"
+                      onClick={(e) => { e.stopPropagation(); window.open(asset.url, '_blank'); }}
+                      className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
                     >
-                      <Eye size={20} />
+                      <Eye size={14} /> 預覽
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/analytics/assets/${asset.id}`); }}
-                      className="w-12 h-12 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:scale-110 active:scale-95 transition-all shadow-xl"
-                    >
-                      <BarChart3 size={20} />
-                    </button>
+                    {asset.type === 'IMAGE' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openImageCropper(asset); }}
+                        className="bg-emerald-500/20 backdrop-blur-md text-emerald-100 px-4 py-2 rounded-xl border border-emerald-500/20 hover:bg-emerald-500/40 transition-all font-bold text-xs flex items-center gap-2"
+                      >
+                        <Crop size={14} /> 裁切
+                      </button>
+                    )}
+                    {asset.type === 'YOUTUBE' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditYouTubeModal(asset); }}
+                        className="bg-red-500/20 backdrop-blur-md text-red-100 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs flex items-center gap-2"
+                      >
+                        <Edit3 size={14} /> 編輯
+                      </button>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }}
-                      className="w-12 h-12 bg-red-500/20 backdrop-blur-md text-red-100 border border-red-500/30 rounded-2xl flex items-center justify-center hover:bg-red-600 hover:text-white hover:scale-110 active:scale-95 transition-all shadow-xl"
+                      className="bg-red-500/20 backdrop-blur-md text-red-200 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs flex items-center gap-2"
                     >
-                      <Trash2 size={20} />
+                      <Trash2 size={14} /> 刪除
                     </button>
                   </div>
-                </div>
               </div>
 
               <div className="p-4 space-y-2">
-                <p className="text-xs font-bold text-slate-800 truncate">{asset.name}</p>
+                <div className="flex justify-between items-start">
+                  <p className="text-xs font-bold text-slate-800 truncate pr-2">{asset.name}</p>
+                  {((asset as any).usageCount || 0) > 0 ? (
+                    <span className="text-[9px] bg-green-100 text-[#1A5336] px-1.5 py-0.5 rounded font-bold shrink-0 cursor-help" title={`使用中的排程：\n${((asset as any).schedules || []).join('\n')}`}>🔗 運用中 ({((asset as any).usageCount || 0)})</span>
+                  ) : (
+                    <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">👻 未排程</span>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {((asset as any).tags || []).map((tag: string) => (
                     <span
@@ -599,6 +976,7 @@ export default function AssetLibrary() {
           );
         })}
       </div>
+      )}
 
       {/* Preview Modal */}
       {previewAsset && (
@@ -961,6 +1339,25 @@ export default function AssetLibrary() {
           </div>
         </div>
       )}
+
+      <ImageCropperModal
+        isOpen={showImageCropper}
+        onClose={() => setShowImageCropper(false)}
+        imageUrl={editingImage?.url || ''}
+        assetName={editingImage?.name || ''}
+        onSave={handleSaveCrop}
+      />
+
+      <YouTubeAssetModal
+        isOpen={showYoutubeModal}
+        onClose={() => {
+          setShowYoutubeModal(false);
+          setEditingYouTubeAsset(null);
+        }}
+        onSave={handleSaveYouTube}
+        initialData={editingYouTubeAsset ? { name: editingYouTubeAsset.name, url: editingYouTubeAsset.url } : null}
+      />
+
     </div>
   );
 }

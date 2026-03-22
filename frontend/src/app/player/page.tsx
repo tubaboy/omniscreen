@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Volume2, VolumeX } from 'lucide-react';
+import YouTube from 'react-youtube';
 import api from '@/lib/api';
 import WidgetRenderer, { WidgetConfig } from '@/components/WidgetRenderer';
 
@@ -13,7 +14,7 @@ interface PlaylistItem {
   assetId?: string;
   scheduleId?: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB';
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE';
   url: string | null;
   duration: number;
   widgetConfig?: WidgetConfig;
@@ -32,6 +33,8 @@ function PlayerContent() {
   const [isMuted, setIsMuted] = useState(true);
   const [autoPlayError, setAutoPlayError] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Increments each time a single-item IMAGE/WIDGET/WEB completes a cycle, triggering the timer effect to restart
+  const [singleItemTick, setSingleItemTick] = useState(0);
 
   // HUD state
   const [serverHud, setServerHud] = useState(true);
@@ -65,6 +68,31 @@ function PlayerContent() {
     }
   };
 
+  // Synchronize YouTube iframe mute state
+  useEffect(() => {
+    const iframe = document.getElementById('youtube-player') as HTMLIFrameElement;
+    if (iframe && iframe.contentWindow) {
+      if (isMuted) {
+        iframe.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
+      } else {
+        iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+        iframe.contentWindow.postMessage('{"event":"command","func":"setVolume","args":[100]}', '*');
+      }
+    }
+  }, [isMuted, currentIndex]); // Run on mute change or slide change
+
+  // Unified playback log helper — all API calls go through here
+  const logPlayback = useCallback((item: PlaylistItem, duration: number) => {
+    if (!screenId || isOffline || !item) return;
+    api.post('/logs/playback', {
+      screenId,
+      assetId: item.assetId || item.id,
+      scheduleId: item.scheduleId,
+      duration: Math.round(Math.max(0, duration)),
+      status: 'SUCCESS'
+    }, { headers: { 'X-Screen-Id': screenId } }).catch(err => console.error('Failed to log playback', err));
+  }, [screenId, isOffline]);
+
   // Register Service Worker
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -87,19 +115,11 @@ function PlayerContent() {
 
     // Log the current item playback before transitioning
     const currentItem = playlist[currentIndex];
-    if (currentItem && screenId && !isOffline) {
-      // safely fallback duration for widgets
+    if (currentItem) {
       const durationPlay = currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB'
         ? currentItem.duration
         : (videoRef.current ? videoRef.current.currentTime : 0);
-
-      api.post('/logs/playback', {
-        screenId,
-        assetId: currentItem.assetId || currentItem.id, // Fallback for old cached data
-        scheduleId: currentItem.scheduleId,
-        duration: Math.round(durationPlay),
-        status: 'SUCCESS'
-      }).catch(err => console.error('Failed to log playback', err));
+      logPlayback(currentItem, durationPlay);
     }
 
     // Special case: Single video looping seamless (avoid black flash and browser autoplay hurdles)
@@ -119,7 +139,7 @@ function PlayerContent() {
     pendingIndexRef.current = nextIndex;
     setRefreshKey(prev => prev + 1);
     setFadeState('fading-out');
-  }, [fadeState, playlist, currentIndex, screenId, isOffline]);
+  }, [fadeState, playlist, currentIndex, logPlayback]);
 
   const next = useCallback(() => {
     const nextIdx = playlist.length > 0 ? (currentIndex + 1) % playlist.length : 0;
@@ -135,7 +155,7 @@ function PlayerContent() {
       if (isCancelled) return;
       try {
         const [plRes, setRes] = await Promise.allSettled([
-          screenId ? api.get(`/playlists/${screenId}`) : Promise.resolve({ data: [] }),
+          screenId ? api.get(`/playlists/${screenId}`, { headers: { 'X-Screen-Id': screenId } }) : Promise.resolve({ data: [] }),
           api.get('/settings'),
         ]);
 
@@ -201,7 +221,7 @@ function PlayerContent() {
     pollData();
 
     const hbInterval = setInterval(() => {
-      if (screenId) api.post(`/screens/${screenId}/heartbeat`).catch(() => { });
+      if (screenId) api.post(`/screens/${screenId}/heartbeat`, {}, { headers: { 'X-Screen-Id': screenId } }).catch(() => { });
     }, 20000);
 
     return () => {
@@ -236,7 +256,6 @@ function PlayerContent() {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB') {
-      if (playlist.length <= 1) return; // Don't loop if only 1 static item
       const dur = currentItem.duration;
       imageStartRef.current = Date.now();
       setImageTimeLeft(dur);
@@ -246,16 +265,27 @@ function PlayerContent() {
         setImageTimeLeft(Math.ceil(left));
         if (left <= 0) clearInterval(tick);
       }, 200);
-      timerRef.current = setTimeout(() => {
-        clearInterval(tick);
-        transitionTo((currentIndex + 1) % playlist.length);
-      }, dur * 1000);
+
+      if (playlist.length <= 1) {
+        // Single static item: log each completed cycle, then restart via singleItemTick
+        timerRef.current = setTimeout(() => {
+          clearInterval(tick);
+          logPlayback(currentItem, dur);
+          setSingleItemTick(c => c + 1);
+        }, dur * 1000);
+      } else {
+        timerRef.current = setTimeout(() => {
+          clearInterval(tick);
+          transitionTo((currentIndex + 1) % playlist.length);
+        }, dur * 1000);
+      }
+
       return () => {
         clearTimeout(timerRef.current!);
         clearInterval(tick);
       };
     }
-  }, [currentIndex, playlist, fadeState]);
+  }, [currentIndex, playlist, fadeState, singleItemTick, logPlayback, transitionTo]);
 
   if (loading) return <div className="text-white flex items-center justify-center h-full">Loading Playlist...</div>;
   if (playlist.length === 0) return <div className="text-white flex items-center justify-center h-full">No active schedule.</div>;
@@ -264,7 +294,6 @@ function PlayerContent() {
   if (!currentItem) return <div className="text-white flex items-center justify-center h-full">Updating playlist…</div>;
 
   const opacity = fadeState === 'visible' ? 1 : 0;
-  console.log(`[PLAYER DEBUG] Rendering idx=${currentIndex}, type=${currentItem.type}, name=${currentItem.name}, url=${currentItem.url}, fadeState=${fadeState}`);
 
   return (
     <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
@@ -285,6 +314,41 @@ function PlayerContent() {
           <WidgetRenderer widgetConfig={currentItem.widgetConfig!} />
         ) : currentItem.type === 'WEB' ? (
           <iframe src={currentItem.url!} className="w-full h-full border-0 bg-white" title={currentItem.name} />
+        ) : currentItem.type === 'YOUTUBE' ? (
+          <YouTube
+            id="youtube-player"
+            key={currentItem.id}
+            videoId={currentItem.url!}
+            opts={{
+              width: '100%',
+              height: '100%',
+              playerVars: {
+                autoplay: 1,
+                mute: isMuted ? 1 : 0,
+                controls: 0,
+                disablekb: 1,
+                rel: 0,
+                modestbranding: 1,
+                playsinline: 1,
+                loop: playlist.length === 1 ? 1 : 0,
+                playlist: playlist.length === 1 ? currentItem.url! : undefined,
+              }
+            }}
+            className="w-full h-full border-0 pointer-events-none"
+            onEnd={() => {
+              if (playlist.length > 1) {
+                transitionTo((currentIndex + 1) % playlist.length);
+              } else {
+                logPlayback(currentItem, 0);
+              }
+            }}
+            onError={() => {
+              if (playlist.length > 1) transitionTo((currentIndex + 1) % playlist.length);
+            }}
+            onReady={(e) => {
+              if (isMuted) e.target.mute(); else e.target.unMute();
+            }}
+          />
         ) : currentItem.type === 'IMAGE' ? (
           <img src={currentItem.url!} className="w-full h-full object-contain" alt="display" />
         ) : (
@@ -294,8 +358,8 @@ function PlayerContent() {
             src={currentItem.url!}
             className="w-full h-full object-contain"
             autoPlay
-            playsInline
             muted={isMuted}
+            playsInline
             onEnded={() => transitionTo((currentIndex + 1) % playlist.length)}
             onError={() => transitionTo((currentIndex + 1) % playlist.length)}
             onPlay={() => {
@@ -374,7 +438,7 @@ function PlayerContent() {
         <div className="flex items-center gap-4 px-6 py-4">
           <div className="flex items-center gap-3 bg-black/50 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full">
             <span className="text-white/50 text-[10px] font-black uppercase tracking-widest">
-              {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : currentItem.type === 'WEB' ? 'WEB_PAGE' : 'VIDEO'}
+              {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : currentItem.type === 'WEB' ? 'WEB_PAGE' : currentItem.type === 'YOUTUBE' ? 'YOUTUBE' : 'VIDEO'}
             </span>
             <span className="text-white/20">•</span>
             <span className="text-white/80 text-xs font-bold truncate max-w-[300px]">{currentItem.name}</span>
@@ -386,6 +450,18 @@ function PlayerContent() {
               <>
                 <span className="text-white/20">•</span>
                 <span className="text-white/50 text-[10px] font-black">{imageTimeLeft}s</span>
+              </>
+            )}
+            {(currentItem.type === 'VIDEO' || currentItem.type === 'YOUTUBE') && (
+              <>
+                <span className="text-white/20">•</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                  className="flex items-center justify-center p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white"
+                  title={isMuted ? "取消靜音" : "靜音"}
+                >
+                  {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                </button>
               </>
             )}
           </div>

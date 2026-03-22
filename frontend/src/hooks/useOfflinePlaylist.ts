@@ -10,7 +10,7 @@ export interface CachedPlaylist {
     playlist: Array<{
         id: string;
         name: string;
-        type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB';
+        type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE';
         url: string | null;
         duration: number;
         widgetConfig?: WidgetConfig;

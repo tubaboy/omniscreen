@@ -44,6 +44,15 @@ async function assetRoutes(fastify, opts) {
   fastify.get('/assets', async (request, reply) => {
     const assets = await fastify.prisma.asset.findMany({
       orderBy: { createdAt: 'desc' },
+      include: {
+        playlists: {
+          select: {
+            schedule: {
+              select: { name: true }
+            }
+          }
+        }
+      }
     });
 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -60,11 +69,20 @@ async function assetRoutes(fastify, opts) {
         finalThumbUrl = finalThumbUrl.replace('http://localhost:3001/api', baseUrl);
       }
 
+      // Extract distinct schedule names and count
+      const scheduleNames = Array.from(new Set(
+        (asset.playlists || [])
+          .map(p => p.schedule?.name)
+          .filter(Boolean)
+      ));
+
       return {
         ...asset,
         size: asset.size.toString(),
         url: finalUrl,
         thumbnailUrl: finalThumbUrl,
+        usageCount: scheduleNames.length,
+        schedules: scheduleNames,
       };
     });
   });
@@ -204,9 +222,19 @@ async function assetRoutes(fastify, opts) {
   fastify.delete('/assets/:id', async (request, reply) => {
     const { id } = request.params;
 
-    // Fetch asset details before deletion
-    const asset = await fastify.prisma.asset.findUnique({ where: { id } });
+    // Fetch asset details and its relations before deletion
+    const asset = await fastify.prisma.asset.findUnique({ 
+      where: { id },
+      include: {
+        playlists: { select: { id: true } }
+      }
+    });
     if (!asset) return reply.code(404).send({ message: 'Asset not found' });
+
+    // Prevent deletion if the asset is in use
+    if (asset.playlists && asset.playlists.length > 0) {
+      return reply.code(409).send({ error: '此素材正在排程中被使用，無法直接刪除' });
+    }
 
     // Helper to extract bucket key from URL
     const getS3Key = (url, isThumb = false) => {
@@ -218,7 +246,8 @@ async function assetRoutes(fastify, opts) {
         const filename = match[1];
         if (isThumb) {
           // Rule for thumbnails: thumb-{basename_without_ext}.jpg
-          const baseNameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+          // Use .split('.')[0] to remain consistent with upload naming logic
+          const baseNameWithoutExt = filename.split('.')[0];
           return `thumbnails/thumb-${baseNameWithoutExt}.jpg`;
         }
         return `assets/${filename}`;
@@ -275,6 +304,46 @@ async function assetRoutes(fastify, opts) {
         mimeType: 'application/json',
         orientation: 'LANDSCAPE',
         duration: (config && config.duration) ? config.duration : 30,
+      },
+    });
+    return { ...asset, size: asset.size.toString() };
+  });
+
+  // POST YouTube Asset (no file upload)
+  fastify.post('/assets/youtube', async (request, reply) => {
+    const { name, url } = request.body || {};
+    if (!name || !url) return reply.code(400).send({ error: 'name and url required' });
+
+    // Parse YouTube video ID from various URL formats
+    const extractYouTubeId = (rawUrl) => {
+      try {
+        const patterns = [
+          /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+          /^([a-zA-Z0-9_-]{11})$/, // bare video ID
+        ];
+        for (const pattern of patterns) {
+          const match = rawUrl.match(pattern);
+          if (match) return match[1];
+        }
+      } catch {}
+      return null;
+    };
+
+    const videoId = extractYouTubeId(url);
+    if (!videoId) return reply.code(400).send({ error: '無法解析 YouTube 影片 ID，請確認輸入的網址是否正確' });
+
+    const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+    const asset = await fastify.prisma.asset.create({
+      data: {
+        name,
+        type: 'YOUTUBE',
+        url: videoId, // Store only the Video ID; player constructs the embed URL
+        thumbnailUrl,
+        size: BigInt(0),
+        mimeType: 'video/youtube',
+        orientation: 'LANDSCAPE',
+        duration: 30,
       },
     });
     return { ...asset, size: asset.size.toString() };
@@ -374,8 +443,7 @@ async function assetRoutes(fastify, opts) {
 
       return reply.send(response.Body);
     } catch (err) {
-      require('fs').writeFileSync('debug-err.json', JSON.stringify({ message: err.message, stack: err.stack, name: err.name, full: err }, null, 2));
-      fastify.log.error('Proxy file failed:', err);
+      fastify.log.error('Proxy file failed: %s (key=%s)', err.message, key);
       return reply.code(404).send({ error: 'File not found' });
     }
   });

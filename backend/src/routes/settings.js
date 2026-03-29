@@ -7,7 +7,8 @@ async function settingsRoutes(fastify) {
         const defaultSettings = {
             player_poll_interval: '10',
             offline_timeout_min: '2',
-            player_hud: 'true'
+            player_hud: 'true',
+            auto_snapshot_interval: '30'
         };
 
         const settingsMap = { ...defaultSettings };

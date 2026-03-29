@@ -20,6 +20,7 @@ export interface DashboardConfig {
   scrolling?: boolean;
   bgColor?: string;
   textColor?: string;
+  bgImageUrl?: string | null;
   contentType?: 'manual' | 'news';
   newsUrl?: string;
   marqueeSpeed?: number;
@@ -264,7 +265,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
         <div 
           className="w-full h-full bg-cover bg-center transition-opacity duration-1000"
           style={{ 
-            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)), url('/backgrounds/taipei-neihu.png')`,
+            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)), url('${config.bgImageUrl || '/backgrounds/taipei-neihu.png'}')`,
           }}
         />
       </div>

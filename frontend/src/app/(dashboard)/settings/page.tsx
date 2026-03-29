@@ -22,6 +22,7 @@ export default function SettingsPage() {
     const [pollInterval, setPollInterval] = useState<number>(10);
     const [offlineTimeout, setOfflineTimeout] = useState<number>(2);
     const [hudDefault, setHudDefault] = useState<boolean>(true);
+    const [autoSnapshotInterval, setAutoSnapshotInterval] = useState<number>(30);
     const [settingsLoading, setSettingsLoading] = useState(true);
 
     // Notification settings
@@ -36,6 +37,7 @@ export default function SettingsPage() {
             setPollInterval(parseInt(res.data.player_poll_interval || '10'));
             setOfflineTimeout(parseInt(res.data.offline_timeout_min || '2'));
             setHudDefault(res.data.player_hud !== 'false');
+            setAutoSnapshotInterval(parseInt(res.data.auto_snapshot_interval || '30'));
             setSilentStart(parseInt(res.data.alert_silent_start || '0'));
             setSilentEnd(parseInt(res.data.alert_silent_end || '8'));
             setAlertIntervalMin(parseInt(res.data.alert_interval_min || '30'));
@@ -75,7 +77,8 @@ export default function SettingsPage() {
             await api.patch('/settings', {
                 player_poll_interval: pollInterval.toString(),
                 offline_timeout_min: offlineTimeout.toString(),
-                player_hud: hudDefault.toString()
+                player_hud: hudDefault.toString(),
+                auto_snapshot_interval: autoSnapshotInterval.toString()
             });
             alert('設定已儲存（播放機會在下次輪詢時自動套用）');
         } catch (err) {
@@ -240,6 +243,21 @@ export default function SettingsPage() {
                                         >
                                             {[1, 2, 5, 10].map(v => <option key={v} value={v}>{v} 分鐘以上視為離線</option>)}
                                         </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                                            自動畫面擷取間隔
+                                        </label>
+                                        <select
+                                            value={autoSnapshotInterval}
+                                            onChange={e => setAutoSnapshotInterval(parseInt(e.target.value))}
+                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none appearance-none"
+                                        >
+                                            <option value={0}>關閉自動擷取</option>
+                                            {[10, 30, 60, 120, 360, 720].map(v => <option key={v} value={v}>每 {v} 分鐘擷取一次</option>)}
+                                        </select>
+                                        <p className="text-[10px] text-slate-400 mt-1.5 ml-1">若開啟，播放機會定期回傳當前畫面截圖（以最後 3 張為循環）</p>
                                     </div>
 
                                     <div className="flex items-center justify-between py-4 border-t border-slate-50">

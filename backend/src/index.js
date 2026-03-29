@@ -2,6 +2,7 @@ require('dotenv').config();
 BigInt.prototype.toJSON = function () { return this.toString() }
 const fastify = require('fastify')({
   logger: true,
+  bodyLimit: 10 * 1024 * 1024, // 10MB for base64 image uploads
 });
 
 const { serializerCompiler, validatorCompiler } = require('fastify-type-provider-zod');
@@ -44,6 +45,7 @@ fastify.register(require('./routes/screens'), { prefix: '/api', preHandler: auth
 fastify.register(require('./routes/settings'), { prefix: '/api' }); // GET is public, PATCH is protected internal
 fastify.register(require('./routes/search'), { prefix: '/api', preHandler: authPreHandler }); // 搜尋功能需 Auth
 fastify.register(require('./routes/analytics'), { prefix: '/api', preHandler: authPreHandler }); // 報表需 Auth
+fastify.register(require('./routes/commands'), { prefix: '/api', preHandler: authPreHandler }); // 遠端指令需 Auth
 
 // Player-facing routes: authenticated by X-Screen-Id header
 // Uses graceful mode (non-breaking). Set STRICT_PLAYER_AUTH=true in .env to enforce.
@@ -53,8 +55,30 @@ fastify.register((playerApp, opts, done) => {
   playerApp.register(require('./routes/playlists'), { prefix: '/api' });
   playerApp.register(require('./routes/logs'), { prefix: '/api' });
   playerApp.register(require('./routes/player-heartbeat'), { prefix: '/api' });
+  playerApp.register(require('./routes/snapshots'), { prefix: '/api' }); // 截圖上傳 (Player Auth)
   done();
 });
+
+// Public proxy for snapshot images (CMS needs to read these without playerAuth)
+fastify.get('/api/snapshots/file/:screenId/:filename', async (request, reply) => {
+  const { screenId, filename } = request.params;
+  const key = `snapshots/${screenId}/${filename}`;
+  try {
+    const { GetObjectCommand } = require('@aws-sdk/client-s3');
+    const response = await fastify.s3.send(new GetObjectCommand({
+      Bucket: fastify.bucketName,
+      Key: key,
+    }));
+    reply.header('Content-Type', response.ContentType || 'image/png');
+    reply.header('Cache-Control', 'public, max-age=3600');
+    if (response.ContentLength) reply.header('Content-Length', response.ContentLength);
+    return reply.send(response.Body);
+  } catch (err) {
+    fastify.log.error('Snapshot proxy failed: %s', err.message);
+    return reply.code(404).send({ error: 'Snapshot not found' });
+  }
+});
+
 fastify.get('/ping', async () => ({ status: 'ok' }));
 
 const { startOfflineAlert } = require('./jobs/offlineAlert');

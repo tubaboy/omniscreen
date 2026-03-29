@@ -148,8 +148,78 @@ function PlayerContent() {
 
   useEffect(() => {
     let currentInterval = 10000;
+    let autoSnapshotIntervalMin = 30; // 預設 30 分鐘
+    let lastSnapshotTime = Date.now(); // 記錄上次截圖時間
     let pollTimeout: NodeJS.Timeout;
     let isCancelled = false;
+
+    // Build system info once
+    const getSystemInfo = () => ({
+      userAgent: navigator.userAgent,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      platform: navigator.platform,
+      language: navigator.language,
+      devicePixelRatio: window.devicePixelRatio,
+    });
+
+    const takeAndUploadSnapshot = async () => {
+      try {
+        const htmlToImage = await import('html-to-image');
+        const dataUrl = await htmlToImage.toJpeg(document.body, {
+          quality: 0.6,
+          fontEmbedCSS: '', // 忽略強制掃描外部字體/樣式表，避免拋出 cssRules 的 SecurityError
+          // Force dimension calculation to avoid data:, (0x0) empty output due to absolute positioned player wrapping
+          width: window.innerWidth,
+          height: window.innerHeight,
+          canvasWidth: Math.floor(window.innerWidth / 2),
+          canvasHeight: Math.floor(window.innerHeight / 2),
+          filter: (node) => {
+            const tag = (node as HTMLElement).tagName?.toUpperCase();
+            if (tag === 'IFRAME' || tag === 'VIDEO') return false; // iframe 與 video 不截圖以保證程式不死機
+            return true;
+          }
+        });
+        
+        if (screenId) {
+          await api.post(`/screens/${screenId}/snapshot`, { image: dataUrl }, {
+            headers: { 'X-Screen-Id': screenId },
+          });
+          console.log('[Snapshot] Uploaded successfully');
+        }
+      } catch (err: any) {
+        console.error('[Snapshot] Failed:', err);
+      }
+    };
+
+    // Handle remote commands from server
+    const handleCommands = async (commands: { id: string; type: string }[]) => {
+      for (const cmd of commands) {
+        switch (cmd.type) {
+          case 'RELOAD':
+            console.log('[Remote] Reload command received');
+            window.location.reload();
+            return; // reload stops everything
+          case 'SNAPSHOT':
+            console.log('[Remote] Snapshot command received');
+            await takeAndUploadSnapshot();
+            lastSnapshotTime = Date.now(); // 重置自動計時器
+            break;
+          case 'CLEAR_CACHE':
+            console.log('[Remote] Clear cache command received');
+            if ('serviceWorker' in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (const reg of registrations) await reg.unregister();
+              const cacheNames = await caches.keys();
+              for (const name of cacheNames) await caches.delete(name);
+              console.log('[Remote] Cache cleared, reloading...');
+              window.location.reload();
+              return;
+            }
+            break;
+        }
+      }
+    };
 
     const pollData = async () => {
       if (isCancelled) return;
@@ -164,6 +234,7 @@ function PlayerContent() {
         if (setRes.status === 'fulfilled') {
           const intervalSec = parseInt(setRes.value.data.player_poll_interval || '10');
           currentInterval = Math.max(5000, intervalSec * 1000);
+          autoSnapshotIntervalMin = parseInt(setRes.value.data.auto_snapshot_interval || '30');
           setServerHud(setRes.value.data.player_hud !== 'false');
           networkSuccess = true;
         }
@@ -220,9 +291,39 @@ function PlayerContent() {
 
     pollData();
 
-    const hbInterval = setInterval(() => {
-      if (screenId) api.post(`/screens/${screenId}/heartbeat`, {}, { headers: { 'X-Screen-Id': screenId } }).catch(() => { });
+    // Heartbeat: sends systemInfo and fetches pending commands
+    const hbInterval = setInterval(async () => {
+      if (!screenId) return;
+
+      // Auto snapshot mechanism
+      if (autoSnapshotIntervalMin > 0 && Date.now() - lastSnapshotTime >= autoSnapshotIntervalMin * 60 * 1000) {
+        await takeAndUploadSnapshot();
+        lastSnapshotTime = Date.now();
+      }
+
+      try {
+        const res = await api.post(`/screens/${screenId}/heartbeat`,
+          { systemInfo: getSystemInfo() },
+          { headers: { 'X-Screen-Id': screenId } }
+        );
+        // Process any pending commands
+        if (res.data?.commands?.length > 0) {
+          await handleCommands(res.data.commands);
+        }
+      } catch {
+        // heartbeat failure is non-critical
+      }
     }, 20000);
+
+    // Send initial heartbeat immediately
+    if (screenId) {
+      api.post(`/screens/${screenId}/heartbeat`,
+        { systemInfo: getSystemInfo() },
+        { headers: { 'X-Screen-Id': screenId } }
+      ).then(res => {
+        if (res.data?.commands?.length > 0) handleCommands(res.data.commands);
+      }).catch(() => {});
+    }
 
     return () => {
       isCancelled = true;

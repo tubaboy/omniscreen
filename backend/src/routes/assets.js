@@ -114,7 +114,7 @@ async function assetRoutes(fastify, opts) {
 
     if (type === 'VIDEO') {
       const tempVideoPath = path.join(os.tmpdir(), filename);
-      const thumbnailFilename = `thumb-${filename.split('.')[0]}.jpg`;
+      const thumbnailFilename = `thumb-${filename.substring(0, filename.lastIndexOf('.')) || filename}.jpg`;
       const tempThumbPath = path.join(os.tmpdir(), thumbnailFilename);
       const thumbKey = `thumbnails/${thumbnailFilename}`;
 
@@ -188,7 +188,6 @@ async function assetRoutes(fastify, opts) {
       }
     }
 
-    // URL calculation using our local proxy
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     const url = `${baseUrl}/assets/file/${filename}`;
     if (type === 'VIDEO') {
@@ -217,6 +216,30 @@ async function assetRoutes(fastify, opts) {
       thumbnailUrl: asset.thumbnailUrl,
     };
   });
+  // POST Asset (Raw Upload without creating DB Asset record)
+  fastify.post('/assets/upload-raw', async (request, reply) => {
+    const data = await request.file();
+    if (!data) return reply.code(400).send({ message: 'No file uploaded' });
+
+    // Try to import uuid if not in scope
+    const { v4: uuidv4 } = require('uuid');
+    const filename = `raw-${uuidv4()}-${data.filename}`;
+    const key = `assets/${filename}`;
+    const buffer = await data.toBuffer();
+    
+    await fastify.s3.send(new PutObjectCommand({
+      Bucket: fastify.bucketName,
+      Key: key,
+      Body: buffer,
+      ContentType: data.mimetype,
+      CacheControl: 'public, max-age=31536000',
+    }));
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const url = `${baseUrl}/assets/file/${filename}`;
+    
+    return reply.send({ url });
+  });
 
   // DELETE Asset
   fastify.delete('/assets/:id', async (request, reply) => {
@@ -236,48 +259,63 @@ async function assetRoutes(fastify, opts) {
       return reply.code(409).send({ error: '此素材正在排程中被使用，無法直接刪除' });
     }
 
-    // Helper to extract bucket key from URL
+    // Helper to extract bucket key from URL, handling potential encoding and complex filenames
     const getS3Key = (url, isThumb = false) => {
       if (!url) return null;
-      // New URL format: http://localhost:3001/api/assets/file/uuid-filename.ext?thumb=true
-      // Or old URL format: http://localhost:9000/omniscreen-assets/assets/uuid-filename.ext
-      const match = url.match(/\/([^/]+\.[a-zA-Z0-9]+)(?:\?|$)/);
-      if (match && match[1]) {
-        const filename = match[1];
-        if (isThumb) {
-          // Rule for thumbnails: thumb-{basename_without_ext}.jpg
-          // Use .split('.')[0] to remain consistent with upload naming logic
-          const baseNameWithoutExt = filename.split('.')[0];
-          return `thumbnails/thumb-${baseNameWithoutExt}.jpg`;
+      try {
+        // Use regex to get the segment after the last slash but before any query params
+        const match = url.match(/\/([^/?#]+)(?:\?|$)/);
+        if (match && match[1]) {
+          // IMPORTANT: Decode URL encoding (e.g. %20 -> space) to match S3 literal keys
+          const filename = decodeURIComponent(match[1]);
+          
+          if (isThumb) {
+            // Get basename before the LAST dot (consistent with POST /assets)
+            const lastDotIndex = filename.lastIndexOf('.');
+            const baseNameWithoutExt = lastDotIndex !== -1 ? filename.substring(0, lastDotIndex) : filename;
+            return `thumbnails/thumb-${baseNameWithoutExt}.jpg`;
+          }
+          
+          // For regular assets or widget backgrounds
+          return `assets/${filename}`;
         }
-        return `assets/${filename}`;
+      } catch (e) {
+        console.error('Error parsing S3 URL:', e);
       }
       return null;
     };
 
+    const keysToDelete = [];
     const mainKey = getS3Key(asset.url, false);
+    if (mainKey) keysToDelete.push(mainKey);
+
     const thumbKey = getS3Key(asset.thumbnailUrl, true);
+    if (thumbKey) keysToDelete.push(thumbKey);
+
+    // If it's a WIDGET, check if it has a custom background image pointing to our S3
+    if (asset.type === 'WIDGET' && asset.url) {
+      try {
+        const parsed = JSON.parse(asset.url);
+        const bgUrl = parsed.config?.bgImageUrl;
+        if (bgUrl && bgUrl.includes('/assets/file/raw-')) {
+          const bgKey = getS3Key(bgUrl);
+          if (bgKey) keysToDelete.push(bgKey);
+        }
+      } catch (e) {}
+    }
 
     try {
-      // Delete main file from MinIO
-      if (mainKey) {
+      // Delete all identified files from MinIO
+      for (const key of keysToDelete) {
         await fastify.s3.send(new DeleteObjectCommand({
           Bucket: fastify.bucketName,
-          Key: mainKey,
+          Key: key,
         }));
-      }
-
-      // Delete thumbnail if exists
-      if (thumbKey) {
-        await fastify.s3.send(new DeleteObjectCommand({
-          Bucket: fastify.bucketName,
-          Key: thumbKey,
-        }));
+        fastify.log.info(`[Cleanup] Deleted from S3: ${key}`);
       }
     } catch (err) {
       fastify.log.error('Failed to delete files from MinIO:', err);
-      // We continue with DB deletion even if S3 fails, or we could error out.
-      // Usually, DB consistency is prioritized, but here we'll proceed.
+      // We continue with DB deletion even if S3 fails
     }
 
     // Delete DB records
@@ -381,10 +419,31 @@ async function assetRoutes(fastify, opts) {
         thumbnailUrl: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`
       };
     } else if (widgetType !== undefined || config !== undefined) {
-      // Re-fetch current to merge config
+      // Re-fetch current to merge config and handle background cleanup
       const current = await fastify.prisma.asset.findUnique({ where: { id } });
-      let currentConfig = {};
+      let currentConfig = { config: {} };
       try { currentConfig = JSON.parse(current.url || '{}'); } catch {}
+      
+      // Cleanup old background if it changed
+      const oldBgUrl = currentConfig.config?.bgImageUrl;
+      const newBgUrl = config?.bgImageUrl;
+      
+      if (oldBgUrl && oldBgUrl !== newBgUrl && oldBgUrl.includes('/assets/file/raw-')) {
+        const match = oldBgUrl.match(/\/([^/]+\.[a-zA-Z0-9]+)(?:\?|$)/);
+        if (match && match[1]) {
+          const oldKey = `assets/${match[1]}`;
+          try {
+            await fastify.s3.send(new DeleteObjectCommand({
+              Bucket: fastify.bucketName,
+              Key: oldKey,
+            }));
+            fastify.log.info(`[Cleanup] Background image replaced. Deleted old file: ${oldKey}`);
+          } catch (e) {
+            fastify.log.error(`[Cleanup] Failed to delete old background: ${oldKey}`, e);
+          }
+        }
+      }
+
       const merged = {
         widgetType: widgetType ?? currentConfig.widgetType,
         config: config ?? currentConfig.config,

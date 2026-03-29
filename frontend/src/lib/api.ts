@@ -36,6 +36,21 @@ export interface Screen {
   orientation: 'LANDSCAPE' | 'PORTRAIT';
   status: 'ONLINE' | 'OFFLINE';
   lastSeen: string;
+  tags: string[];
+  latitude: number | null;
+  longitude: number | null;
+  lastSnapshotUrl: string | null;
+  snapshotAt: string | null;
+  systemInfo: Record<string, unknown> | null;
+  customBgUrl: string | null;
+}
+
+export interface ScreenCommand {
+  id: string;
+  screenId: string;
+  type: 'RELOAD' | 'SNAPSHOT' | 'CLEAR_CACHE';
+  status: 'PENDING' | 'COMPLETED';
+  createdAt: string;
 }
 
 export interface Asset {
@@ -49,3 +64,4 @@ export interface Asset {
   size: string;
   tags?: string[];
 }
+

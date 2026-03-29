@@ -33,11 +33,12 @@ services:
       - "3001:3001"
     environment:
       - PORT=3001
-      - DATABASE_URL=postgresql://admin:password123@postgres:5432/omniscreen?schema=public
+      - DATABASE_URL=postgresql://omniscreen:omniscreen_dev@postgres:5432/omniscreen?schema=public
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
-      - JWT_SECRET=${JWT_SECRET:-your_super_secret_jwt_key_here}
+      - MINIO_BUCKET_NAME=omniscreen-assets
+      - JWT_SECRET=${JWT_SECRET:-omniscreen_secret_key_12345}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
       - LINE_CHANNEL_TOKEN=${LINE_CHANNEL_TOKEN}
       - LINE_USER_ID=${LINE_USER_ID}
@@ -50,6 +51,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
     container_name: omniscreen-frontend
     ports:
       - "3000:3000"

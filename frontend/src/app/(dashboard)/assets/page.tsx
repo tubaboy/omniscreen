@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, X, Play, Eye, Tag, BarChart3, Zap, Clock, CloudSun, Megaphone, Edit3, CheckSquare, Calendar, LayoutGrid, List as ListIcon, Filter, Crop, Youtube } from 'lucide-react';
 import ImageCropperModal from './components/ImageCropperModal';
 import YouTubeAssetModal from './components/YouTubeAssetModal';
+import WidgetRenderer, { WidgetConfig } from '@/components/WidgetRenderer';
 
 type WidgetType = 'DASHBOARD';
 
 interface WidgetFormState {
   name: string;
   widgetType: WidgetType;
+  bgImageUrl?: string | null;
   // Clock
   showDate: boolean;
   showSeconds: boolean;
@@ -29,6 +31,42 @@ interface WidgetFormState {
   newsUrl: string;
   marqueeSpeed: number;
 }
+
+// Helper for client-side image compression
+const compressImage = (file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<Blob | File> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (blob && blob.size < file.size) {
+            resolve(blob);
+          } else {
+            resolve(file); // If compression doesn't save space, use original
+          }
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+};
 
 export default function AssetLibrary() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -132,6 +170,7 @@ export default function AssetLibrary() {
   const [widgetForm, setWidgetForm] = useState<WidgetFormState>({
     name: '',
     widgetType: 'DASHBOARD', // Added widgetType
+    bgImageUrl: null,
     showDate: true,
     showSeconds: true,
     lat: '25.04',
@@ -209,6 +248,7 @@ export default function AssetLibrary() {
     setWidgetForm({
       name: '我的動態看板', // Default name for new widget
       widgetType: 'DASHBOARD',
+      bgImageUrl: null,
       showDate: true,
       showSeconds: true,
       lat: '25.04',
@@ -239,6 +279,7 @@ export default function AssetLibrary() {
     setWidgetForm({
       name: asset.name,
       widgetType: 'DASHBOARD', // Assuming all widgets are DASHBOARD for now
+      bgImageUrl: config.bgImageUrl ?? null,
       showDate: config.showDate ?? true,
       showSeconds: config.showSeconds ?? true,
       lat: (config.lat ?? 25.04).toString(),
@@ -265,6 +306,7 @@ export default function AssetLibrary() {
       widgetType: widgetForm.widgetType,
       duration: 30, // Default fallback, scheduling will override
       config: {
+        bgImageUrl: widgetForm.bgImageUrl,
         showDate: widgetForm.showDate,
         showSeconds: widgetForm.showSeconds,
         lat: parseFloat(widgetForm.lat as string), // Ensure lat/lon are numbers
@@ -653,11 +695,15 @@ export default function AssetLibrary() {
                       </div>
                     </td>
                     <td className="p-4 text-right space-x-2 whitespace-nowrap">
-                       {asset.type === 'IMAGE' || asset.type === 'VIDEO' ? (
-                          <button onClick={(e) => { e.stopPropagation(); window.open(asset.url, '_blank') }} className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all" title="預覽">
-                            <Eye size={16}/>
-                          </button>
-                       ) : null}
+                       {/* Preview Button for all types */}
+                       <button 
+                         onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }} 
+                         className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all" 
+                         title="預覽"
+                       >
+                         <Eye size={16}/>
+                       </button>
+
                        {asset.type === 'IMAGE' ? (
                           <button onClick={(e) => { e.stopPropagation(); openImageCropper(asset); }} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="裁切編輯">
                             <Crop size={16}/>
@@ -727,6 +773,12 @@ export default function AssetLibrary() {
                   <span className="text-white font-black text-sm relative z-10 tracking-widest">DASHBOARD</span>
                   <div className="absolute inset-0 bg-violet-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4">
                     <div className="flex gap-2">
+                       <button
+                        onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }}
+                        className="bg-violet-500/20 backdrop-blur-md text-violet-100 px-4 py-2 rounded-xl border border-violet-500/20 hover:bg-violet-500/40 transition-all font-bold text-xs flex items-center gap-2"
+                      >
+                        <Eye size={14} /> 預覽
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditWidgetModal(asset); }}
                         className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
@@ -778,6 +830,12 @@ export default function AssetLibrary() {
                   <span className="text-slate-900 font-black text-[10px] relative z-10 tracking-widest uppercase truncate max-w-full px-2">{new URL(asset.url).hostname}</span>
                   <div className="absolute inset-0 bg-sky-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4">
                     <div className="flex gap-2">
+                       <button
+                        onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }}
+                        className="bg-sky-500/20 backdrop-blur-md text-sky-100 px-4 py-2 rounded-xl border border-sky-500/20 hover:bg-sky-500/40 transition-all font-bold text-xs flex items-center gap-2"
+                      >
+                        <Eye size={14} /> 預覽
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditUrlModal(asset); }}
                         className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
@@ -851,7 +909,7 @@ export default function AssetLibrary() {
 
                 <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4">
                     <button
-                      onClick={(e) => { e.stopPropagation(); window.open(asset.url, '_blank'); }}
+                      onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }}
                       className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
                     >
                       <Eye size={14} /> 預覽
@@ -1006,8 +1064,27 @@ export default function AssetLibrary() {
             <div className="w-full h-full flex items-center justify-center">
               {previewAsset.type === 'VIDEO' ? (
                 <video src={previewAsset.url} controls autoPlay className="max-w-full max-h-full" />
+              ) : previewAsset.type === 'YOUTUBE' ? (
+                <iframe 
+                  src={`https://www.youtube.com/embed/${previewAsset.url}?autoplay=1&mute=0&rel=0`} 
+                  className="w-full h-full border-0" 
+                  allow="autoplay; encrypted-media; fullscreen" 
+                  title={previewAsset.name} 
+                />
               ) : previewAsset.type === 'WEB' ? (
                 <iframe src={previewAsset.url} className="w-full h-full border-0 bg-white" title={previewAsset.name} />
+              ) : previewAsset.type === 'WIDGET' ? (
+                <div className="w-full h-full flex items-center justify-center p-4">
+                  <div className="w-full h-full shadow-2xl rounded-2xl overflow-hidden">
+                    {(() => {
+                      try {
+                        return <WidgetRenderer widgetConfig={JSON.parse(previewAsset.url) as WidgetConfig} />;
+                      } catch (e) {
+                        return <div className="text-white">Widget 配置錯誤</div>;
+                      }
+                    })()}
+                  </div>
+                </div>
               ) : (
                 <img src={previewAsset.url} alt={previewAsset.name} className="max-w-full max-h-full object-contain" />
               )}
@@ -1062,7 +1139,7 @@ export default function AssetLibrary() {
               {/* Basic Section */}
               <section className="space-y-4">
                 <h3 className="text-sm font-black text-slate-800 border-b pb-2">📂 基本設定</h3>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 block">看板名稱</label>
                     <input
@@ -1072,6 +1149,50 @@ export default function AssetLibrary() {
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all shadow-sm"
                       placeholder="例如：大廳首頁看板"
                     />
+                  </div>
+                  <div>
+                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1 justify-between">
+                      <span>自訂背景圖片</span>
+                      {widgetForm.bgImageUrl && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">已套用</span>}
+                    </label>
+                    <div className="flex gap-2 min-w-0">
+                      {widgetForm.bgImageUrl ? (
+                        <div className="relative w-full h-[50px] rounded-xl overflow-hidden border border-slate-200 group">
+                           <img src={widgetForm.bgImageUrl} className="w-full h-full object-cover" />
+                           <button type="button" onClick={() => setWidgetForm(f => ({...f, bgImageUrl: null}))} className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center font-bold opacity-0 group-hover:opacity-100 transition-all text-sm rounded-xl">清除並恢復預設</button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.onchange = async (e: any) => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              try {
+                                // Compress image before upload
+                                const processedFile = await compressImage(f);
+                                const formData = new FormData();
+                                formData.append('file', processedFile, f.name);
+                                const res = await api.post('/assets/upload-raw', formData, {
+                                  headers: { 'Content-Type': 'multipart/form-data' }
+                                });
+                                setWidgetForm(prev => ({...prev, bgImageUrl: res.data.url}));
+                              } catch (err) {
+                                alert('圖片上傳失敗，請稍後再試');
+                              }
+                            };
+                            input.click();
+                          }}
+                          className="w-full h-[50px] flex items-center justify-center gap-2 px-4 bg-slate-100 border border-slate-200 border-dashed rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-all hover:border-slate-300 shadow-sm"
+                        >
+                          <ImageIcon size={16} />
+                          上傳專屬桌布 (選填)
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </section>

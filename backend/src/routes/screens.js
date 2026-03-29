@@ -23,18 +23,46 @@ async function screenRoutes(fastify, opts) {
   // POST Screen (Create)
   fastify.post('/screens', async (request, reply) => {
     try {
-      const { name, orientation } = request.body || {};
+      const { name, orientation, tags, latitude, longitude } = request.body || {};
       if (!name) return reply.code(400).send({ error: 'Name is required' });
 
       return await fastify.prisma.screen.create({
         data: {
           name,
           orientation: orientation || 'LANDSCAPE',
+          ...(tags ? { tags } : {}),
+          ...(latitude !== undefined ? { latitude } : {}),
+          ...(longitude !== undefined ? { longitude } : {}),
         },
       });
     } catch (err) {
       fastify.log.error(err);
       return reply.code(500).send({ error: 'Failed to create screen' });
+    }
+  });
+
+  // PATCH Screen (Update)
+  fastify.patch('/screens/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { name, orientation, tags, latitude, longitude, customBgUrl } = request.body || {};
+
+      const data = {};
+      if (name !== undefined) data.name = name;
+      if (orientation !== undefined) data.orientation = orientation;
+      if (tags !== undefined) data.tags = tags;
+      if (latitude !== undefined) data.latitude = latitude;
+      if (longitude !== undefined) data.longitude = longitude;
+      if (customBgUrl !== undefined) data.customBgUrl = customBgUrl;
+
+      const screen = await fastify.prisma.screen.update({
+        where: { id },
+        data,
+      });
+      return screen;
+    } catch (err) {
+      fastify.log.error(err);
+      return reply.code(500).send({ error: 'Failed to update screen' });
     }
   });
 

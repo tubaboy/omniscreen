@@ -8,14 +8,34 @@ datasource db {
 }
 
 model Screen {
-  id          String      @id @default(cuid())
-  name        String
-  orientation Orientation @default(LANDSCAPE)
-  lastSeen    DateTime    @default(now())
-  status      String      @default("OFFLINE")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  schedules   Schedule[]
+  id              String      @id @default(cuid())
+  name            String
+  orientation     Orientation @default(LANDSCAPE)
+  lastSeen        DateTime    @default(now())
+  status          String      @default("OFFLINE")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  tags            String[]    @default([])
+  latitude        Float?
+  longitude       Float?
+  lastSnapshotUrl String?
+  snapshotAt      DateTime?
+  systemInfo      Json?
+  customBgUrl     String?
+  schedules       Schedule[]
+  commands        ScreenCommand[]
+}
+
+model ScreenCommand {
+  id        String   @id @default(cuid())
+  screenId  String
+  type      String   // RELOAD, SNAPSHOT, CLEAR_CACHE
+  status    String   @default("PENDING") // PENDING, COMPLETED
+  createdAt DateTime @default(now())
+  screen    Screen   @relation(fields: [screenId], references: [id], onDelete: Cascade)
+
+  @@index([screenId])
+  @@index([status])
 }
 
 model Asset {

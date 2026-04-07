@@ -75,6 +75,30 @@ docker compose up -d --build
 
 ---
 
+## 🔄 如何更新系統 (Update)
+
+當專案程式碼有新的版本或修復時，請按照以下步驟更新你的本地系統：
+
+1.  **取得最新程式碼**：
+    在 `omniscreen` 資料夾中執行：
+    ```bash
+    git pull
+    ```
+
+2.  **重新建置並啟動**：
+    確保最新修改被套用：
+    ```bash
+    docker compose up -d --build
+    ```
+
+3.  **同步資料庫結構 (選做)**：
+    如果更新內容涉及資料庫欄位更動，請執行：
+    ```bash
+    docker exec -it omniscreen-backend npx prisma db push
+    ```
+
+---
+
 ## 🔍 第五步：常見問題與解決
 
 ### 1. 登入資訊
@@ -117,3 +141,11 @@ docker compose down
 如果您不想自己維護伺服器，或者想要讓其他人透過網路連進來，可以考慮使用 **Zeabur** 雲端服務。
 
 👉 請參考：[Zeabur 雲端部屬指南 (ZEABUR_DEPLOY_GUIDE.md)](./ZEABUR_DEPLOY_GUIDE.md)
+
+---
+
+## 🌩️ 進階：混合雲部屬 (Wonder Mesh)
+
+如果您想用自己的舊電腦 (如 iMac) 跑系統，但又希望人在外面能遠端管理與自動更新：
+
+👉 請參考：[Wonder Mesh + 本地播放器整合手冊 (WONDER_MESH_PLAYER_GUIDE.md)](./WONDER_MESH_PLAYER_GUIDE.md)

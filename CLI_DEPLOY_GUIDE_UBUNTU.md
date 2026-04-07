@@ -111,10 +111,16 @@ sudo docker exec -it omniscreen-backend npx prisma db push
   sudo docker compose ps
   ```
 
-- **如果是「改了程式碼」要更新？**
+- **🔄 如何更新系統？ (當有最新程式碼時)**
   ```bash
+  # 1. 取得最新版本
   git pull
+
+  # 2. 重新建置並啟動
   sudo docker compose up -d --build
+
+  # 3. 同步資料庫 (若有結構變動)
+  sudo docker exec -it omniscreen-backend npx prisma db push
   ```
 
 - **如果要看錯誤紀錄 (Log)？**

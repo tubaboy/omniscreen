@@ -30,33 +30,33 @@ async function s3Plugin(fastify, opts) {
           fastify.log.info(`Bucket "${bucketName}" not found. Creating...`);
           await client.send(new CreateBucketCommand({ Bucket: bucketName }));
           fastify.log.info(`Bucket "${bucketName}" created successfully.`);
-
-          // Set bucket policy for public access to assets/thumbnails
-          const { PutBucketPolicyCommand } = require('@aws-sdk/client-s3');
-          const policy = {
-            Version: '2012-10-17',
-            Statement: [
-              {
-                Sid: 'PublicRead',
-                Effect: 'Allow',
-                Principal: '*',
-                Action: ['s3:GetObject'],
-                Resource: [`arn:aws:s3:::${bucketName}/*`],
-              },
-            ],
-          };
-
-          await client.send(
-            new PutBucketPolicyCommand({
-              Bucket: bucketName,
-              Policy: JSON.stringify(policy),
-            })
-          );
-          fastify.log.info(`Bucket "${bucketName}" policy set to Public Read-Only.`);
         } else {
           throw error;
         }
       }
+
+      // Always ensure bucket policy is set to public read-only
+      const { PutBucketPolicyCommand } = require('@aws-sdk/client-s3');
+      const policy = {
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Sid: 'PublicRead',
+            Effect: 'Allow',
+            Principal: '*',
+            Action: ['s3:GetObject'],
+            Resource: [`arn:aws:s3:::${bucketName}/*`],
+          },
+        ],
+      };
+
+      await client.send(
+        new PutBucketPolicyCommand({
+          Bucket: bucketName,
+          Policy: JSON.stringify(policy),
+        })
+      );
+      fastify.log.info(`Bucket "${bucketName}" policy set to Public Read-Only.`);
     } catch (err) {
       fastify.log.error('Failed to initialize MinIO bucket:', err);
     }

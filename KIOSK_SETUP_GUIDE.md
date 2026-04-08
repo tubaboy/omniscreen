@@ -54,8 +54,8 @@ sudo apt install chromium-browser -y
 建立一個 `start_player.sh`:
 ```bash
 #!/bin/bash
-# 關閉滑鼠游標 (可選)
-unclutter -idle 0.1 -root &
+# 啟動 unclutter 隱藏滑鼠游標 (5秒不動即隱藏)
+unclutter -idle 5 -root &
 
 # 啟動 Chromium 在 Kiosk 模式 (強制自動播放聲音)
 chromium-browser --kiosk --noerrdialogs --disable-infobars --autoplay-policy=no-user-gesture-required "http://localhost:3000/player"

@@ -15,6 +15,12 @@ MONITOR_NAME="HDMI-1"
 echo "Omniscreen 監控模式已啟動..."
 echo "正在監控 $MONITOR_NAME 的連接狀態..."
 
+# 啟動 unclutter 隱藏滑鼠游標 (5秒不動即隱藏)
+if ! pgrep -x "unclutter" > /dev/null; then
+  unclutter -idle 5 -root &
+  echo "[OK] 已啟動 unclutter 隱藏滑鼠..."
+fi
+
 # 先啟動系統監控工具 (btop) 在本機螢幕
 if ! pgrep -x "btop" > /dev/null; then
   gnome-terminal --full-screen -- btop &

@@ -221,8 +221,7 @@ async function assetRoutes(fastify, opts) {
     const data = await request.file();
     if (!data) return reply.code(400).send({ message: 'No file uploaded' });
 
-    // Try to import uuid if not in scope
-    const { v4: uuidv4 } = require('uuid');
+    // Use uuidv4 from outer scope (already imported as ESM)
     const filename = `raw-${uuidv4()}-${data.filename}`;
     const key = `assets/${filename}`;
     const buffer = await data.toBuffer();

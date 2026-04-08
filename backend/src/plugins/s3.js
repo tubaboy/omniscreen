@@ -31,8 +31,28 @@ async function s3Plugin(fastify, opts) {
           await client.send(new CreateBucketCommand({ Bucket: bucketName }));
           fastify.log.info(`Bucket "${bucketName}" created successfully.`);
 
-          // Optional: Set bucket policy for public access to assets/thumbnails if needed
-          // You can add putBucketPolicy here if public reading is required
+          // Set bucket policy for public access to assets/thumbnails
+          const { PutBucketPolicyCommand } = require('@aws-sdk/client-s3');
+          const policy = {
+            Version: '2012-10-17',
+            Statement: [
+              {
+                Sid: 'PublicRead',
+                Effect: 'Allow',
+                Principal: '*',
+                Action: ['s3:GetObject'],
+                Resource: [`arn:aws:s3:::${bucketName}/*`],
+              },
+            ],
+          };
+
+          await client.send(
+            new PutBucketPolicyCommand({
+              Bucket: bucketName,
+              Policy: JSON.stringify(policy),
+            })
+          );
+          fastify.log.info(`Bucket "${bucketName}" policy set to Public Read-Only.`);
         } else {
           throw error;
         }

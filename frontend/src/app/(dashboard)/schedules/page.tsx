@@ -1,7 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import api, { Screen, Asset } from '@/lib/api';
+
+// Lightweight unique ID generator (no dependency needed)
+let _uidCounter = 0;
+const uid = () => `q_${Date.now().toString(36)}_${(++_uidCounter).toString(36)}`;
 import {
   Calendar,
   Plus,
@@ -54,20 +58,28 @@ interface Schedule {
   items: { asset: Asset }[];
 }
 
+// ── Queue item type with unique key ────────────────────────────────────────────
+interface QueueItem {
+  queueKey: string; // unique per queue slot, allows same asset multiple times
+  asset: Asset;
+  durationForSchedule?: number;
+}
+
 // ── SortableQueueItem ──────────────────────────────────────────────────────────
 function SortableQueueItem({
-  asset,
+  item,
   index,
   onRemove,
   onDurationChange,
 }: {
-  asset: Asset & { durationForSchedule?: number };
+  item: QueueItem;
   index: number;
-  onRemove: (id: string) => void;
-  onDurationChange: (id: string, duration: number) => void;
+  onRemove: (queueKey: string) => void;
+  onDurationChange: (queueKey: string, duration: number) => void;
 }) {
+  const { asset } = item;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: asset.id });
+    useSortable({ id: item.queueKey });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -126,8 +138,8 @@ function SortableQueueItem({
             type="number"
             min="1"
             className="w-14 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-center"
-            value={asset.durationForSchedule || asset.duration || 30}
-            onChange={(e) => onDurationChange(asset.id, parseInt(e.target.value) || 10)}
+            value={item.durationForSchedule || asset.duration || 30}
+            onChange={(e) => onDurationChange(item.queueKey, parseInt(e.target.value) || 10)}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()} // 防止被 dnd-kit 攔截
             title="播放秒數"
@@ -138,7 +150,7 @@ function SortableQueueItem({
 
       {/* Remove button */}
       <button
-        onClick={() => onRemove(asset.id)}
+        onClick={() => onRemove(item.queueKey)}
         className="p-1.5 text-slate-300 hover:text-red-400 hover:bg-red-50 rounded-xl transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
         aria-label="從佇列移除"
       >
@@ -193,7 +205,7 @@ export default function ScheduleManagement() {
   const [priority, setPriority] = useState(1);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   // Queue: ordered array of asset objects with optional duration override
-  const [queue, setQueue] = useState<(Asset & { durationForSchedule?: number })[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isActive, setIsActive] = useState(true);
 
   // DnD state
@@ -203,7 +215,7 @@ export default function ScheduleManagement() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const activeAsset = activeId ? queue.find(a => a.id === activeId) ?? null : null;
+  const activeItem = activeId ? queue.find(q => q.queueKey === activeId) ?? null : null;
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const fetchData = async () => {
@@ -248,8 +260,9 @@ export default function ScheduleManagement() {
     setPriority(schedule.priority ?? 1);
     setDaysOfWeek((schedule as any).daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6]);
     setQueue(schedule.items.map(item => ({
-      ...item.asset,
-      durationForSchedule: (item as any).duration || item.asset.duration || 30, // Default to 30 for widgets/web if unknown
+      queueKey: uid(),
+      asset: item.asset,
+      durationForSchedule: (item as any).duration || item.asset.duration || 30,
     })));
     setIsActive(schedule.isActive);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -281,11 +294,9 @@ export default function ScheduleManagement() {
       alert('請選擇螢幕與至少一個素材');
       return;
     }
-    const assetItems = queue.map(a => ({
-      id: a.id,
-      // Only send duration if it was explicitly changed to something different from the asset's default.
-      // This allows the backend to fallback to the asset's current duration if it's null in the PlaylistItem.
-      duration: a.durationForSchedule !== a.duration ? a.durationForSchedule : undefined,
+    const assetItems = queue.map(q => ({
+      id: q.asset.id,
+      duration: q.durationForSchedule !== q.asset.duration ? q.durationForSchedule : undefined,
     }));
     const payload = {
       name: name || `排程 ${new Date().toLocaleDateString()}`,
@@ -317,22 +328,18 @@ export default function ScheduleManagement() {
     }
   };
 
-  // Toggle asset in/out of queue
-  const toggleAsset = (asset: Asset) => {
-    setQueue(prev => {
-      const exists = prev.find(a => a.id === asset.id);
-      if (exists) return prev.filter(a => a.id !== asset.id);
-      return [...prev, asset];
-    });
+  // Add asset to queue (can be added multiple times)
+  const addAssetToQueue = (asset: Asset) => {
+    setQueue(prev => [...prev, { queueKey: uid(), asset, durationForSchedule: asset.duration || undefined }]);
   };
 
-  const handleRemoveFromQueue = (assetId: string) => {
-    setQueue(prev => prev.filter(a => a.id !== assetId));
+  const handleRemoveFromQueue = (queueKey: string) => {
+    setQueue(prev => prev.filter(q => q.queueKey !== queueKey));
   };
 
-  const handleDurationChange = (assetId: string, newDuration: number) => {
-    setQueue(prev => prev.map(a =>
-      a.id === assetId ? { ...a, durationForSchedule: newDuration } : a
+  const handleDurationChange = (queueKey: string, newDuration: number) => {
+    setQueue(prev => prev.map(q =>
+      q.queueKey === queueKey ? { ...q, durationForSchedule: newDuration } : q
     ));
   };
 
@@ -346,8 +353,8 @@ export default function ScheduleManagement() {
     setActiveId(null);
     if (over && active.id !== over.id) {
       setQueue(prev => {
-        const oldIndex = prev.findIndex(a => a.id === active.id);
-        const newIndex = prev.findIndex(a => a.id === over.id);
+        const oldIndex = prev.findIndex(q => q.queueKey === active.id);
+        const newIndex = prev.findIndex(q => q.queueKey === over.id);
         return arrayMove(prev, oldIndex, newIndex);
       });
     }
@@ -369,7 +376,12 @@ export default function ScheduleManagement() {
       </div>
     );
 
-  const queueIds = queue.map(a => a.id);
+  const queueKeys = queue.map(q => q.queueKey);
+  // Count how many times each asset appears in queue
+  const assetQueueCount = queue.reduce<Record<string, number>>((acc, q) => {
+    acc[q.asset.id] = (acc[q.asset.id] || 0) + 1;
+    return acc;
+  }, {});
 
   // Filter assets based on first selected screen orientation
   const selectedScreenData = screens.find(s => s.id === selectedScreenIds[0]);
@@ -608,9 +620,11 @@ export default function ScheduleManagement() {
               小撇步
             </h3>
             <p className="text-sm font-medium leading-relaxed text-slate-300">
-              點擊素材加入播放佇列，並用{' '}
+              點擊素材加入播放佇列，同一素材可{' '}
+              <span className="text-white font-black">重複加入多次</span>{' '}
+              實現穿插播放效果。用{' '}
               <span className="text-white font-black">⠿ 拖拉把手</span>{' '}
-              調整播放順序。儲存後系統依照清單順序循環播放。
+              調整播放順序，儲存後系統依照清單順序循環播放。
             </p>
           </div>
         </div>
@@ -627,13 +641,14 @@ export default function ScheduleManagement() {
               </h2>
               <div className="grid grid-cols-3 gap-3 max-h-[480px] overflow-y-auto pr-1 rounded-xl">
                 {filteredAssets.map(asset => {
-                  const inQueue = queueIds.includes(asset.id);
+                  const count = assetQueueCount[asset.id] || 0;
+                  const inQueue = count > 0;
                   const thumb =
                     asset.thumbnailUrl || (asset.type === 'IMAGE' ? asset.url : null);
                   return (
                     <button
                       key={asset.id}
-                      onClick={() => toggleAsset(asset)}
+                      onClick={() => addAssetToQueue(asset)}
                       className={`group relative bg-white border rounded-[18px] overflow-hidden transition-all text-left ${inQueue
                         ? 'ring-4 ring-blue-500/30 border-blue-500'
                         : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
@@ -658,15 +673,13 @@ export default function ScheduleManagement() {
                           <span>{asset.orientation === 'PORTRAIT' ? '9:16' : '16:9'}</span>
                         </div>
                         {inQueue && (
-                          <div className="absolute top-1.5 right-1.5 bg-blue-500 text-white rounded-full p-0.5 shadow-lg z-10 pointer-events-none">
-                            <CheckCircle2 size={13} />
+                          <div className="absolute top-1.5 right-1.5 bg-blue-500 text-white rounded-full min-w-[22px] h-[22px] flex items-center justify-center shadow-lg z-10 pointer-events-none px-1">
+                            <span className="text-[10px] font-black leading-none">{count}</span>
                           </div>
                         )}
-                        {/* hover overlay: show + or – */}
+                        {/* hover overlay: always + (add again) */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
-                          <span className="text-white text-xl font-black">
-                            {inQueue ? '−' : '+'}
-                          </span>
+                          <span className="text-white text-xl font-black">+</span>
                         </div>
                       </div>
                       <div className="p-2">
@@ -698,7 +711,7 @@ export default function ScheduleManagement() {
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
               >
-                <SortableContext items={queueIds} strategy={verticalListSortingStrategy}>
+                <SortableContext items={queueKeys} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2 min-h-[120px]">
                     {queue.length === 0 ? (
                       <div className="min-h-[200px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-300 gap-2">
@@ -706,10 +719,10 @@ export default function ScheduleManagement() {
                         <p className="text-xs font-bold">點擊左側素材加入佇列</p>
                       </div>
                     ) : (
-                      queue.map((asset, index) => (
+                      queue.map((qItem, index) => (
                         <SortableQueueItem
-                          key={asset.id}
-                          asset={asset}
+                          key={qItem.queueKey}
+                          item={qItem}
                           index={index}
                           onRemove={handleRemoveFromQueue}
                           onDurationChange={handleDurationChange}
@@ -726,7 +739,7 @@ export default function ScheduleManagement() {
                     }),
                   }}
                 >
-                  <DragGhostCard asset={activeAsset} />
+                  <DragGhostCard asset={activeItem?.asset ?? null} />
                 </DragOverlay>
               </DndContext>
             </div>

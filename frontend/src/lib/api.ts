@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+  baseURL: typeof window !== 'undefined' 
+    ? `http://${window.location.hostname}:3001/api` 
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'),
 });
 
 // Attach JWT token from localStorage to every request

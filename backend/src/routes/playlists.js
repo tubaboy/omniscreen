@@ -1,3 +1,5 @@
+const { fixAssetUrls } = require('../utils/url');
+
 async function playlistRoutes(fastify, opts) {
   // GET Playlist for a Screen (Core Engine)
   fastify.get('/playlists/:screenId', async (request, reply) => {
@@ -80,15 +82,16 @@ async function playlistRoutes(fastify, opts) {
         if (isWidget) {
           try { widgetConfig = JSON.parse(item.asset.url); } catch(e) {}
         }
+        const fixedAsset = fixAssetUrls(item.asset, request);
         return {
           id: item.id, // Use unique PlaylistItem id for React keys
-          assetId: item.asset.id,
+          assetId: fixedAsset.id,
           scheduleId: item.scheduleId,
-          name: item.asset.name,
-          type: item.asset.type,
-          url: isWidget ? null : item.asset.url,
-          duration: item.duration || item.asset.duration || 10,
-          orientation: item.asset.orientation,
+          name: fixedAsset.name,
+          type: fixedAsset.type,
+          url: isWidget ? null : fixedAsset.url,
+          duration: item.duration || fixedAsset.duration || 10,
+          orientation: fixedAsset.orientation,
           widgetConfig,
         };
       });
@@ -166,7 +169,7 @@ async function playlistRoutes(fastify, opts) {
 
   // GET All Schedules
   fastify.get('/schedules', async (request, reply) => {
-    return fastify.prisma.schedule.findMany({
+    const schedules = await fastify.prisma.schedule.findMany({
       include: {
         screen: true,
         items: {
@@ -176,6 +179,15 @@ async function playlistRoutes(fastify, opts) {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Fix asset URLs in every schedule's items
+    return schedules.map(schedule => ({
+      ...schedule,
+      items: schedule.items.map(item => ({
+        ...item,
+        asset: fixAssetUrls(item.asset, request),
+      })),
+    }));
   });
 
   // POST /schedules/:id (Update)
@@ -228,10 +240,18 @@ async function playlistRoutes(fastify, opts) {
   // GET Schedules for a Screen
   fastify.get('/screens/:screenId/schedules', async (request, reply) => {
     const { screenId } = request.params;
-    return fastify.prisma.schedule.findMany({
+    const schedules = await fastify.prisma.schedule.findMany({
       where: { screenId },
       include: { items: { include: { asset: true } } },
     });
+
+    return schedules.map(schedule => ({
+      ...schedule,
+      items: schedule.items.map(item => ({
+        ...item,
+        asset: fixAssetUrls(item.asset, request),
+      })),
+    }));
   });
 }
 

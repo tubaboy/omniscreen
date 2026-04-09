@@ -5,6 +5,7 @@ const path = require('path');
 const os = require('os');
 const { promisify } = require('util');
 const pipeline = promisify(require('stream').pipeline);
+const { fixAssetUrls } = require('../utils/url');
 
 // Set FFmpeg paths dynamically for development and production environments
 const ffmpegPath = process.env.FFMPEG_PATH || (os.platform() === 'win32' ? path.join(os.homedir(), 'scoop', 'shims', 'ffmpeg.exe') : 'ffmpeg');
@@ -55,19 +56,8 @@ async function assetRoutes(fastify, opts) {
       }
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
     return assets.map(asset => {
-      let finalUrl = asset.url;
-      let finalThumbUrl = asset.thumbnailUrl;
-
-      // Fix mixed content / CORS for older assets saved with localhost
-      if (finalUrl && finalUrl.includes('localhost:3001/api')) {
-        finalUrl = finalUrl.replace('http://localhost:3001/api', baseUrl);
-      }
-      if (finalThumbUrl && finalThumbUrl.includes('localhost:3001/api')) {
-        finalThumbUrl = finalThumbUrl.replace('http://localhost:3001/api', baseUrl);
-      }
+      const fixed = fixAssetUrls(asset, request);
 
       // Extract distinct schedule names and count
       const scheduleNames = Array.from(new Set(
@@ -77,10 +67,8 @@ async function assetRoutes(fastify, opts) {
       ));
 
       return {
-        ...asset,
+        ...fixed,
         size: asset.size.toString(),
-        url: finalUrl,
-        thumbnailUrl: finalThumbUrl,
         usageCount: scheduleNames.length,
         schedules: scheduleNames,
       };

@@ -229,6 +229,15 @@ function PlayerContent() {
           api.get('/settings'),
         ]);
 
+        // --- DEBUG INFO INJECTION ---
+        if (typeof window !== 'undefined') {
+          (window as any).__debug_pl_status = plRes.status;
+          (window as any).__debug_set_status = setRes.status;
+          if (plRes.status === 'rejected') (window as any).__debug_error = `PL: ${(plRes as any).reason?.response?.status || 'NetError'} ${(plRes as any).reason?.message}`;
+          if (setRes.status === 'rejected') (window as any).__debug_error = `SET: ${(setRes as any).reason?.response?.status || 'NetError'} ${(setRes as any).reason?.message}`;
+        }
+        // ----------------------------
+
         let networkSuccess = false;
 
         if (setRes.status === 'fulfilled') {
@@ -400,11 +409,30 @@ function PlayerContent() {
 
   return (
     <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
-      {/* Offline Indicator */}
+      {/* Offline Indicator & Debug Panel */}
       {isOffline && (
-        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-sm border border-orange-400/30 px-3 py-1.5 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-          <span className="text-orange-300 text-[10px] font-black uppercase tracking-widest">離線快取</span>
+        <div className="absolute top-4 right-4 z-50 flex flex-col items-end gap-2">
+           <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm border border-orange-400/30 px-3 py-1.5 rounded-full">
+            <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+            <span className="text-orange-300 text-[10px] font-black uppercase tracking-widest">離線快取</span>
+          </div>
+          
+          <div className="bg-black/80 p-4 rounded-2xl border border-white/10 text-[10px] text-white/50 font-mono text-right max-w-sm space-y-1 shadow-2xl">
+            <p className="text-blue-400 font-bold border-b border-white/5 pb-1 mb-1">NETWORK DIAGNOSTICS</p>
+            <p>CLIENT_HOST: {typeof window !== 'undefined' ? window.location.hostname : '...'}</p>
+            <p>SCREEN_ID: {screenId || 'NULL'}</p>
+            <p className={ (window as any).__debug_pl_status === 'fulfilled' ? 'text-green-400' : 'text-red-400' }>
+              PLAYLIST: {(window as any).__debug_pl_status || 'WAITING'}
+            </p>
+            <p className={ (window as any).__debug_set_status === 'fulfilled' ? 'text-green-400' : 'text-red-400' }>
+              SETTINGS: {(window as any).__debug_set_status || 'WAITING'}
+            </p>
+            { (window as any).__debug_error && (
+              <p className="text-orange-500 bg-orange-500/10 p-1 px-2 rounded mt-2 text-[9px] break-all">
+                ⚠️ {(window as any).__debug_error}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

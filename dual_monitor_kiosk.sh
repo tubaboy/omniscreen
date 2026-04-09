@@ -35,9 +35,10 @@ while true; do
     if ! pgrep -f "chromium-browser.*$PLAYER_URL" > /dev/null; then
       echo "[$(date +%T)] 偵測到 $MONITOR_NAME，啟動全螢幕播放器..."
       
-      # 啟動命令 (強制定位於 X=$PRIMARY_WIDTH)
+      # 啟動命令 (加入 --incognito 以避免 Service Worker 緩存過期問題)
       chromium-browser --new-window \
         --window-position=$PRIMARY_WIDTH,0 \
+        --incognito \
         --kiosk \
         --noerrdialogs \
         --disable-infobars \

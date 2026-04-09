@@ -57,8 +57,8 @@ sudo apt install chromium-browser -y
 # 啟動 unclutter 隱藏滑鼠游標 (5秒不動即隱藏)
 unclutter -idle 5 -root &
 
-# 啟動 Chromium 在 Kiosk 模式 (強制自動播放聲音)
-chromium-browser --kiosk --noerrdialogs --disable-infobars --autoplay-policy=no-user-gesture-required "http://localhost:3000/player"
+# 啟動 Chromium 在 Kiosk 模式 (強烈建議加入 --incognito 避開 Service Worker 緩存問題)
+chromium-browser --incognito --kiosk --noerrdialogs --disable-infobars --autoplay-policy=no-user-gesture-required "http://localhost:3000/player"
 ```
 
 ### 3. 設定自動啟動 (LXDE / Pi)

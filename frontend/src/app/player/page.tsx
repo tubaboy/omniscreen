@@ -402,9 +402,17 @@ function PlayerContent() {
     <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
       {/* Offline Indicator */}
       {isOffline && (
-        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-black/60 backdrop-blur-sm border border-orange-400/30 px-3 py-1.5 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-          <span className="text-orange-300 text-[10px] font-black uppercase tracking-widest">離線快取</span>
+        <div className="absolute top-4 right-4 z-50 flex flex-col items-end gap-2">
+           <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm border border-orange-400/30 px-3 py-1.5 rounded-full">
+            <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+            <span className="text-orange-300 text-[10px] font-black uppercase tracking-widest">離線快取</span>
+          </div>
+          {/* Debug Info */}
+          <div className="bg-black/80 p-3 rounded-2xl border border-white/10 text-[9px] text-white/50 font-mono text-right max-w-xs">
+            <p>API: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}</p>
+            <p>Screen ID: {screenId || 'MISSING'}</p>
+            <p>Status: {loading ? 'Loading...' : 'Retrying...'}</p>
+          </div>
         </div>
       )}
 

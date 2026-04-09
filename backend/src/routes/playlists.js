@@ -77,12 +77,18 @@ async function playlistRoutes(fastify, opts) {
         return true;
       })
       .map(item => {
-        const isWidget = item.asset.type === 'WIDGET';
+        const fixedAsset = fixAssetUrls(item.asset, request);
+        const isWidget = fixedAsset.type === 'WIDGET';
         let widgetConfig = null;
         if (isWidget) {
-          try { widgetConfig = JSON.parse(item.asset.url); } catch(e) {}
+          try {
+            // Because fixAssetUrls uses a global regex on the string, 
+            // the nested bgImageUrl inside the JSON string is already fixed!
+            widgetConfig = JSON.parse(fixedAsset.url);
+          } catch (e) {
+            fastify.log.error('Failed to parse widget config:', e);
+          }
         }
-        const fixedAsset = fixAssetUrls(item.asset, request);
         return {
           id: item.id, // Use unique PlaylistItem id for React keys
           assetId: fixedAsset.id,

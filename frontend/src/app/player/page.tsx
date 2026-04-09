@@ -237,11 +237,13 @@ function PlayerContent() {
           autoSnapshotIntervalMin = parseInt(setRes.value.data.auto_snapshot_interval || '30');
           setServerHud(setRes.value.data.player_hud !== 'false');
           networkSuccess = true;
+          setIsOffline(false);
         }
 
         if (plRes.status === 'fulfilled' && screenId) {
           const newPlaylist = plRes.value.data as PlaylistItem[];
           networkSuccess = true;
+          setIsOffline(false);
 
           // Save to IndexedDB for offline fallback
           if (newPlaylist.length > 0) {
@@ -260,11 +262,11 @@ function PlayerContent() {
             setCurrentIndex(0);
             return newPlaylist;
           });
-          setLoading(false);
-          setIsOffline(false);
         }
 
-        if (!networkSuccess) {
+        if (networkSuccess) {
+          setLoading(false);
+        } else {
           throw new Error('All network requests failed');
         }
       } catch (err) {

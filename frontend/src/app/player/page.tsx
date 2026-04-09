@@ -254,11 +254,14 @@ function PlayerContent() {
           networkSuccess = true;
           setIsOffline(false);
 
-          // Save to IndexedDB for offline fallback
-          if (newPlaylist.length > 0) {
-            await savePlaylist(screenId, newPlaylist);
-            // Pre-cache media URLs (skip WIDGET which has no URL)
-            precacheUrls(newPlaylist.filter(i => i.url).map((item) => item.url as string));
+          // Safe Cache: 即使硬碟寫入失敗，也不應影響連線狀態
+          try {
+            if (newPlaylist.length > 0) {
+              await savePlaylist(screenId, newPlaylist);
+              precacheUrls(newPlaylist.filter(i => i.url).map((item) => item.url as string));
+            }
+          } catch (cacheErr) {
+            console.warn('Silent cache failure:', cacheErr);
           }
 
           setPlaylist(prev => {

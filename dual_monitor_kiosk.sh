@@ -1,19 +1,28 @@
 #!/bin/bash
 
 # =================================================================
-# Omniscreen 專業雙螢幕啟動與自動復位腳本 (v1.0)
-# 適用於: Linux Mint / Ubuntu / Debian (Chromium-based)
+# Omniscreen 專業雙螢幕啟動與自動復位腳本 (v1.1)
+# 修正：支援 Linux Mint (chromium) 並解決重複啟動 Bug
 # =================================================================
 
 # --- 設定區 ---
-PRIMARY_WIDTH=1920           # iMac 本機螢幕寬度 (決定外接螢幕座標)
-PLAYER_URL="http://localhost:3000/player"
-CHECK_INTERVAL=10            # 每 10 秒檢查一次 HDMI 狀態
-# 請執行 'xrandr' 查詢你的外接螢幕名稱 (通常是 HDMI-1, DP-1 或 VGA-1)
-MONITOR_NAME="HDMI-1"
+PRIMARY_WIDTH=1920            # iMac 本機螢幕寬度 (決定外接螢幕座標)
+PLAYER_URL="http://linux-mint.local:3000/player"
+CHECK_INTERVAL=5              # 縮短檢查時間，反應更快
+MONITOR_NAME="DisplayPort-0"         # 請確保 xrandr 輸出包含此名稱
+BROWSER_CMD="chromium"        # Linux Mint 使用 chromium
+KIOSK_PROFILE="/tmp/omniscreen_kiosk" # 獨立的瀏覽器設定檔，方便識別進程
 
 echo "Omniscreen 監控模式已啟動..."
 echo "正在監控 $MONITOR_NAME 的連接狀態..."
+
+# --- 環境檢查 ---
+# 檢查必要工具是否安裝
+for cmd in xrandr unclutter gnome-terminal btop chromium; do
+  if ! command -v $cmd &> /dev/null; then
+    echo "[警告] 缺少工具: $cmd，請執行 'sudo apt update && sudo apt install $cmd' 安裝"
+  fi
+done
 
 # 啟動 unclutter 隱藏滑鼠游標 (5秒不動即隱藏)
 if ! pgrep -x "unclutter" > /dev/null; then
@@ -21,9 +30,12 @@ if ! pgrep -x "unclutter" > /dev/null; then
   echo "[OK] 已啟動 unclutter 隱藏滑鼠..."
 fi
 
-# 先啟動系統監控工具 (btop) 在本機螢幕
+# 啟動系統監控工具 (btop) 在本機螢幕
 if ! pgrep -x "btop" > /dev/null; then
-  gnome-terminal --full-screen -- btop &
+  # 使用 gnome-terminal 開啟 btop
+  if command -v gnome-terminal &> /dev/null; then
+    gnome-terminal --full-screen -- btop &
+  fi
 fi
 
 # --- 循環檢查邏輯 ---
@@ -31,26 +43,32 @@ while true; do
   # 檢查外接螢幕是否已連接
   if xrandr | grep -q "$MONITOR_NAME connected"; then
     
-    # 如果螢幕在，但播放器 (Chromium) 沒在跑
-    if ! pgrep -f "chromium-browser.*$PLAYER_URL" > /dev/null; then
-      echo "[$(date +%T)] 偵測到 $MONITOR_NAME，啟動全螢幕播放器..."
+    # 檢查是否已有專屬的播放器進程在執行
+    # 使用 --user-data-dir 的路徑來精確比對，避免與一般視窗混淆
+    if ! pgrep -f "$KIOSK_PROFILE" > /dev/null; then
+      echo "[$(date +%T)] 偵測到 $MONITOR_NAME，正在啟動播放器..."
       
       # 啟動命令 (加入 --incognito 以避免 Service Worker 緩存過期問題)
-      chromium-browser --new-window \
+      $BROWSER_CMD --new-window \
         --window-position=$PRIMARY_WIDTH,0 \
+        --user-data-dir="$KIOSK_PROFILE" \
         --incognito \
         --kiosk \
         --noerrdialogs \
         --disable-infobars \
         --autoplay-policy=no-user-gesture-required \
+        --check-for-update-interval=31536000 \
         "$PLAYER_URL" &
+        
+      # 給瀏覽器一點時間啟動，避免進程清單尚未更新
+      sleep 2
     fi
 
   else
-    # 如果螢幕拔掉了，但播放器還在跑 (它會出現在主螢幕，很礙事)
-    if pgrep -f "chromium-browser.*$PLAYER_URL" > /dev/null; then
+    # 如果螢幕拔掉了，但播放器還在跑，就關閉它
+    if pgrep -f "$KIOSK_PROFILE" > /dev/null; then
       echo "[$(date +%T)] $MONITOR_NAME 已斷開，關閉播放器視窗..."
-      pkill -f "chromium-browser.*$PLAYER_URL"
+      pkill -f "$KIOSK_PROFILE"
     fi
   fi
 

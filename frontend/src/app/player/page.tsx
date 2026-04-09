@@ -150,6 +150,7 @@ function PlayerContent() {
     let currentInterval = 10000;
     let autoSnapshotIntervalMin = 30; // 預設 30 分鐘
     let lastSnapshotTime = Date.now(); // 記錄上次截圖時間
+    let isCurrentlyOffline = false; // 用於 heartbeat 內部判斷，避免閉包時抓到舊的 state
     let pollTimeout: NodeJS.Timeout;
     let isCancelled = false;
 
@@ -247,12 +248,14 @@ function PlayerContent() {
           setServerHud(setRes.value.data.player_hud !== 'false');
           networkSuccess = true;
           setIsOffline(false);
+          isCurrentlyOffline = false;
         }
 
         if (plRes.status === 'fulfilled' && screenId) {
           const newPlaylist = plRes.value.data as PlaylistItem[];
           networkSuccess = true;
           setIsOffline(false);
+          isCurrentlyOffline = false;
 
           // Safe Cache: 即使硬碟寫入失敗，也不應影響連線狀態
           try {
@@ -284,6 +287,7 @@ function PlayerContent() {
       } catch (err) {
         console.warn('Poll failed, trying IndexedDB cache…', err);
         setIsOffline(true);
+        isCurrentlyOffline = true;
 
         // Fallback to IndexedDB cache
         if (screenId) {
@@ -310,7 +314,8 @@ function PlayerContent() {
       if (!screenId) return;
 
       // Auto snapshot mechanism
-      if (autoSnapshotIntervalMin > 0 && Date.now() - lastSnapshotTime >= autoSnapshotIntervalMin * 60 * 1000) {
+      // 僅在「在線」狀態且達到設定間隔時間時，才執行定時截圖
+      if (!isCurrentlyOffline && autoSnapshotIntervalMin > 0 && Date.now() - lastSnapshotTime >= autoSnapshotIntervalMin * 60 * 1000) {
         await takeAndUploadSnapshot();
         lastSnapshotTime = Date.now();
       }

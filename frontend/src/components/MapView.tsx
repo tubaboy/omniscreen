@@ -57,39 +57,99 @@ export default function MapView({ screens, onScreenClick }: MapViewProps) {
       const map = mapInstanceRef.current;
       if (!map) return;
 
-      // Clear existing circle markers
+      // Clear existing markers (both CircleMarker and Marker with DivIcon)
       map.eachLayer(layer => {
-        if (layer instanceof L.CircleMarker) map.removeLayer(layer);
+        if (layer instanceof L.CircleMarker || layer instanceof L.Marker) {
+          map.removeLayer(layer);
+        }
       });
 
       const validScreens = screens.filter(s => s.latitude && s.longitude);
 
       validScreens.forEach(screen => {
         const offline = isOffline(screen.lastSeen);
+        const hasSnapshot = !offline && screen.lastSnapshotUrl;
 
-        // Custom circle marker
-        const marker = L.circleMarker([screen.latitude!, screen.longitude!], {
-          radius: 10,
-          fillColor: offline ? '#ef4444' : '#22c55e',
-          color: offline ? '#dc2626' : '#16a34a',
-          weight: 3,
-          opacity: 1,
-          fillOpacity: 0.8,
-        }).addTo(map);
+        let marker: L.CircleMarker | L.Marker;
 
-        marker.bindPopup(`
-          <div style="font-family: system-ui, sans-serif; min-width: 180px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        if (hasSnapshot) {
+          // Online + has screenshot → show thumbnail with green glowing border
+          const icon = L.divIcon({
+            className: '',
+            iconSize: [72, 48],
+            iconAnchor: [36, 24],
+            popupAnchor: [0, -28],
+            html: `
+              <div style="
+                position: relative;
+                width: 72px;
+                height: 48px;
+                border-radius: 10px;
+                overflow: hidden;
+                border: 3px solid #22c55e;
+                box-shadow: 0 0 12px rgba(34, 197, 94, 0.5), 0 2px 8px rgba(0,0,0,0.2);
+                background: #000;
+                cursor: pointer;
+              ">
+                <img
+                  src="${screen.lastSnapshotUrl}"
+                  style="width: 100%; height: 100%; object-fit: cover;"
+                  onerror="this.style.display='none'"
+                />
+                <div style="
+                  position: absolute;
+                  bottom: 2px;
+                  right: 2px;
+                  width: 8px;
+                  height: 8px;
+                  border-radius: 50%;
+                  background: #22c55e;
+                  box-shadow: 0 0 6px #22c55e;
+                  animation: pulse-green 2s infinite;
+                "></div>
+              </div>
+              <style>
+                @keyframes pulse-green {
+                  0%, 100% { opacity: 1; box-shadow: 0 0 6px #22c55e; }
+                  50% { opacity: 0.6; box-shadow: 0 0 12px #22c55e; }
+                }
+              </style>
+            `,
+          });
+
+          marker = L.marker([screen.latitude!, screen.longitude!], { icon }).addTo(map);
+        } else {
+          // Offline or no screenshot → red circle marker
+          marker = L.circleMarker([screen.latitude!, screen.longitude!], {
+            radius: 10,
+            fillColor: '#ef4444',
+            color: '#dc2626',
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0.8,
+          }).addTo(map);
+        }
+
+        // Build popup content
+        const popupContent = `
+          <div style="font-family: system-ui, sans-serif; min-width: 200px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
               <span style="width: 8px; height: 8px; border-radius: 50%; background: ${offline ? '#ef4444' : '#22c55e'}; display: inline-block;"></span>
               <strong style="font-size: 14px;">${screen.name}</strong>
             </div>
-            <div style="font-size: 11px; color: #64748b;">
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
               ${screen.orientation === 'LANDSCAPE' ? '橫向' : '縱向'} · ${offline ? '離線' : '在線'}
             </div>
-            ${screen.tags?.length ? `<div style="margin-top: 4px; font-size: 10px; color: #94a3b8;">${screen.tags.join(', ')}</div>` : ''}
+            ${screen.lastSnapshotUrl ? `
+              <div style="border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 6px;">
+                <img src="${screen.lastSnapshotUrl}" style="width: 100%; height: auto; display: block;" onerror="this.parentElement.style.display='none'" />
+              </div>
+            ` : ''}
+            ${screen.tags?.length ? `<div style="font-size: 10px; color: #94a3b8;">${screen.tags.join(', ')}</div>` : ''}
           </div>
-        `);
+        `;
 
+        marker.bindPopup(popupContent, { maxWidth: 280 });
         marker.on('click', () => onScreenClick(screen));
       });
 

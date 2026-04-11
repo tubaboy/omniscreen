@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { fixAssetUrls } = require('../utils/url');
 
 async function analyticsRoutes(fastify, options) {
 
@@ -299,7 +300,7 @@ async function analyticsRoutes(fastify, options) {
         const errorCount = errorCountFromLogs + errorCountFromStats;
 
         return {
-            asset,
+            asset: fixAssetUrls(asset, request),
             totalImpressions,
             totalDuration,
             errorCount,

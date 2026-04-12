@@ -96,6 +96,46 @@ function startOfflineAlert(prisma) {
 
                 if (isSilent) continue;
 
+                // Check if this screen has any currently active schedule
+                const now = new Date();
+                const taipeiNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+                const currentDay = taipeiNow.getDay(); // 0=Sun, 1=Mon, ...
+                const currentTimeStr = taipeiNow.toTimeString().slice(0, 5); // "HH:MM"
+
+                const screenSchedules = await prisma.schedule.findMany({
+                    where: {
+                        screenId: screen.id,
+                        isActive: true,
+                    },
+                });
+
+                const hasActiveSchedule = screenSchedules.some((sched) => {
+                    // Check day of week
+                    if (sched.daysOfWeek.length > 0 && !sched.daysOfWeek.includes(currentDay)) return false;
+
+                    // Check date range (startDate / endDate)
+                    if (sched.startDate && taipeiNow < new Date(sched.startDate)) return false;
+                    if (sched.endDate && taipeiNow > new Date(sched.endDate)) return false;
+
+                    // Check time range (startTime / endTime as "HH:MM" strings)
+                    if (sched.startTime && sched.endTime) {
+                        if (sched.startTime <= sched.endTime) {
+                            // Normal range, e.g. 09:00 - 18:00
+                            if (currentTimeStr < sched.startTime || currentTimeStr >= sched.endTime) return false;
+                        } else {
+                            // Overnight range, e.g. 22:00 - 06:00
+                            if (currentTimeStr < sched.startTime && currentTimeStr >= sched.endTime) return false;
+                        }
+                    }
+
+                    return true;
+                });
+
+                if (!hasActiveSchedule) {
+                    // No active schedule running right now, skip alert
+                    continue;
+                }
+
                 const minutesOffline = Math.floor((Date.now() - new Date(screen.lastSeen).getTime()) / 60000);
                 const message = `⚠️ [Omniscreen] 螢幕離線警告\n\n螢幕名稱：${screen.name}\n離線時間：${minutesOffline} 分鐘\n\n請確認設備狀態。`;
 

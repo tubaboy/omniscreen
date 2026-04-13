@@ -54,12 +54,13 @@ function PlayerContent() {
   const ytLiveStartRef = useRef<number>(0);
   const ytLiveTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Initialize mute state from localStorage
+  // Initialize mute state from localStorage (user override takes priority)
   useEffect(() => {
     const savedMute = localStorage.getItem(`player_${screenId}_muted`);
-    if (savedMute === 'false') {
-      setIsMuted(false);
+    if (savedMute !== null) {
+      setIsMuted(savedMute !== 'false');
     }
+    // If no localStorage entry, server default will be applied on first poll
   }, [screenId]);
 
   const toggleMute = () => {
@@ -264,6 +265,11 @@ function PlayerContent() {
           currentInterval = Math.max(5000, intervalSec * 1000);
           autoSnapshotIntervalMin = parseInt(setRes.value.data.auto_snapshot_interval || '30');
           setServerHud(setRes.value.data.player_hud !== 'false');
+          // Apply server default mute if user hasn't manually overridden
+          if (screenId && localStorage.getItem(`player_${screenId}_muted`) === null) {
+            const serverMuted = setRes.value.data.player_default_muted !== 'false';
+            setIsMuted(serverMuted);
+          }
           networkSuccess = true;
           setIsOffline(false);
           isCurrentlyOffline = false;

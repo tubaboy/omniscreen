@@ -23,6 +23,7 @@ export default function SettingsPage() {
     const [offlineTimeout, setOfflineTimeout] = useState<number>(2);
     const [hudDefault, setHudDefault] = useState<boolean>(true);
     const [autoSnapshotInterval, setAutoSnapshotInterval] = useState<number>(30);
+    const [defaultMuted, setDefaultMuted] = useState<boolean>(true);
     const [settingsLoading, setSettingsLoading] = useState(true);
 
     // Notification settings
@@ -38,6 +39,7 @@ export default function SettingsPage() {
             setOfflineTimeout(parseInt(res.data.offline_timeout_min || '2'));
             setHudDefault(res.data.player_hud !== 'false');
             setAutoSnapshotInterval(parseInt(res.data.auto_snapshot_interval || '30'));
+            setDefaultMuted(res.data.player_default_muted !== 'false');
             setSilentStart(parseInt(res.data.alert_silent_start || '0'));
             setSilentEnd(parseInt(res.data.alert_silent_end || '8'));
             setAlertIntervalMin(parseInt(res.data.alert_interval_min || '30'));
@@ -78,7 +80,8 @@ export default function SettingsPage() {
                 player_poll_interval: pollInterval.toString(),
                 offline_timeout_min: offlineTimeout.toString(),
                 player_hud: hudDefault.toString(),
-                auto_snapshot_interval: autoSnapshotInterval.toString()
+                auto_snapshot_interval: autoSnapshotInterval.toString(),
+                player_default_muted: defaultMuted.toString()
             });
             alert('設定已儲存（播放機會在下次輪詢時自動套用）');
         } catch (err) {
@@ -271,6 +274,20 @@ export default function SettingsPage() {
                                             className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all ${hudDefault ? 'bg-[#1A5336]' : 'bg-slate-200'}`}
                                         >
                                             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${hudDefault ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center justify-between py-4 border-t border-slate-50">
+                                        <div>
+                                            <p className="font-black text-slate-800 text-sm">預設靜音</p>
+                                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">開啟時播放機啟動後預設靜音，需手動點擊開啟聲音。關閉則預設有聲播放（需搭配 autoplay policy 設定）</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDefaultMuted(prev => !prev)}
+                                            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all ${defaultMuted ? 'bg-[#1A5336]' : 'bg-slate-200'}`}
+                                        >
+                                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${defaultMuted ? 'translate-x-6' : 'translate-x-1'}`} />
                                         </button>
                                     </div>
 

@@ -48,6 +48,12 @@ function PlayerContent() {
   const pendingIndexRef = useRef<number>(0);
   const imageStartRef = useRef<number>(0);
 
+  // YouTube Live detection state
+  const [ytIsLive, setYtIsLive] = useState(false);
+  const ytTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const ytLiveStartRef = useRef<number>(0);
+  const ytLiveTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Initialize mute state from localStorage
   useEffect(() => {
     const savedMute = localStorage.getItem(`player_${screenId}_muted`);
@@ -110,6 +116,13 @@ function PlayerContent() {
     hudTimerRef.current = setTimeout(() => setHudVisible(false), 4000);
   };
 
+  // Cleanup YouTube live timer whenever index changes or component unmounts
+  const clearYtLiveTimer = useCallback(() => {
+    if (ytTimerRef.current) { clearTimeout(ytTimerRef.current); ytTimerRef.current = null; }
+    if (ytLiveTickRef.current) { clearInterval(ytLiveTickRef.current); ytLiveTickRef.current = null; }
+    setYtIsLive(false);
+  }, []);
+
   const transitionTo = useCallback((nextIndex: number) => {
     if (fadeState !== 'visible') return;
 
@@ -118,7 +131,9 @@ function PlayerContent() {
     if (currentItem) {
       const durationPlay = currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB'
         ? currentItem.duration
-        : (videoRef.current ? videoRef.current.currentTime : 0);
+        : currentItem.type === 'YOUTUBE' && ytTimerRef.current
+          ? (Date.now() - ytLiveStartRef.current) / 1000
+          : (videoRef.current ? videoRef.current.currentTime : 0);
       logPlayback(currentItem, durationPlay);
     }
 
@@ -135,11 +150,14 @@ function PlayerContent() {
       return;
     }
 
+    // Cleanup YT live timer before transitioning
+    clearYtLiveTimer();
+
     if (timerRef.current) clearTimeout(timerRef.current);
     pendingIndexRef.current = nextIndex;
     setRefreshKey(prev => prev + 1);
     setFadeState('fading-out');
-  }, [fadeState, playlist, currentIndex, logPlayback]);
+  }, [fadeState, playlist, currentIndex, logPlayback, clearYtLiveTimer]);
 
   const next = useCallback(() => {
     const nextIdx = playlist.length > 0 ? (currentIndex + 1) % playlist.length : 0;
@@ -407,6 +425,60 @@ function PlayerContent() {
     }
   }, [currentIndex, playlist, fadeState, singleItemTick, logPlayback, transitionTo]);
 
+  // Cleanup YT live timer on index change
+  useEffect(() => {
+    return () => { clearYtLiveTimer(); };
+  }, [currentIndex, clearYtLiveTimer]);
+
+  // YouTube live detection handler — called from onReady and onStateChange
+  const handleYtLiveDetection = useCallback((player: any) => {
+    // Already detected and timer running, skip
+    if (ytTimerRef.current) return;
+
+    const currentItem = playlist[currentIndex];
+    if (!currentItem || currentItem.type !== 'YOUTUBE') return;
+
+    try {
+      const ytDuration = player.getDuration();
+      // getDuration() returns 0 for live streams, or a very large number for DVR-enabled live
+      const isLive = ytDuration === 0 || ytDuration > 86400; // > 24hrs = treat as live
+      console.log(`[YT] getDuration()=${ytDuration}, isLive=${isLive}`);
+
+      if (isLive) {
+        setYtIsLive(true);
+        const dur = currentItem.duration || 120;
+        ytLiveStartRef.current = Date.now();
+        setImageTimeLeft(dur);
+
+        // Start countdown tick
+        ytLiveTickRef.current = setInterval(() => {
+          const elapsed = (Date.now() - ytLiveStartRef.current) / 1000;
+          const left = Math.max(0, dur - elapsed);
+          setImageTimeLeft(Math.ceil(left));
+          if (left <= 0 && ytLiveTickRef.current) clearInterval(ytLiveTickRef.current);
+        }, 200);
+
+        // Fallback timer to force transition
+        if (playlist.length > 1) {
+          ytTimerRef.current = setTimeout(() => {
+            console.log('[YT Live] Duration reached, transitioning to next');
+            transitionTo((currentIndex + 1) % playlist.length);
+          }, dur * 1000);
+        } else {
+          // Single YT live item: log and restart cycle
+          ytTimerRef.current = setTimeout(() => {
+            console.log('[YT Live] Single item cycle complete, logging');
+            logPlayback(currentItem, dur);
+            clearYtLiveTimer();
+            setSingleItemTick(c => c + 1);
+          }, dur * 1000);
+        }
+      }
+    } catch (err) {
+      console.warn('[YT] getDuration() failed:', err);
+    }
+  }, [playlist, currentIndex, transitionTo, logPlayback, clearYtLiveTimer]);
+
   if (loading) return <div className="text-white flex items-center justify-center h-full">Loading Playlist...</div>;
   if (playlist.length === 0) return <div className="text-white flex items-center justify-center h-full">No active schedule.</div>;
 
@@ -469,12 +541,14 @@ function PlayerContent() {
                 rel: 0,
                 modestbranding: 1,
                 playsinline: 1,
-                loop: playlist.length === 1 ? 1 : 0,
-                playlist: playlist.length === 1 ? currentItem.url! : undefined,
+                loop: playlist.length === 1 && !ytIsLive ? 1 : 0,
+                playlist: playlist.length === 1 && !ytIsLive ? currentItem.url! : undefined,
               }
             }}
             className="w-full h-full border-0 pointer-events-none"
             onEnd={() => {
+              // Clear live timer if it was set (shouldn't fire for live, but safety)
+              clearYtLiveTimer();
               if (playlist.length > 1) {
                 transitionTo((currentIndex + 1) % playlist.length);
               } else {
@@ -482,10 +556,19 @@ function PlayerContent() {
               }
             }}
             onError={() => {
+              clearYtLiveTimer();
               if (playlist.length > 1) transitionTo((currentIndex + 1) % playlist.length);
             }}
             onReady={(e) => {
               if (isMuted) e.target.mute(); else e.target.unMute();
+              // Attempt live detection on ready
+              handleYtLiveDetection(e.target);
+            }}
+            onStateChange={(e) => {
+              // State 1 = PLAYING — best time to re-check duration (some live streams report 0 only after buffering)
+              if (e.data === 1) {
+                handleYtLiveDetection(e.target);
+              }
             }}
           />
         ) : currentItem.type === 'IMAGE' ? (
@@ -568,7 +651,9 @@ function PlayerContent() {
             style={{
               width: currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB'
                 ? `${((currentItem.duration - imageTimeLeft) / currentItem.duration) * 100}%`
-                : `${videoProgress * 100}%`,
+                : currentItem.type === 'YOUTUBE' && ytIsLive
+                  ? `${((currentItem.duration - imageTimeLeft) / currentItem.duration) * 100}%`
+                  : `${videoProgress * 100}%`,
             }}
           />
         </div>
@@ -579,6 +664,16 @@ function PlayerContent() {
             <span className="text-white/50 text-[10px] font-black uppercase tracking-widest">
               {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : currentItem.type === 'WEB' ? 'WEB_PAGE' : currentItem.type === 'YOUTUBE' ? 'YOUTUBE' : 'VIDEO'}
             </span>
+            {/* YouTube LIVE badge */}
+            {currentItem.type === 'YOUTUBE' && ytIsLive && (
+              <>
+                <span className="text-white/20">•</span>
+                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-red-400">LIVE</span>
+                </span>
+              </>
+            )}
             <span className="text-white/20">•</span>
             <span className="text-white/80 text-xs font-bold truncate max-w-[300px]">{currentItem.name}</span>
             <span className="text-white/20">•</span>
@@ -589,6 +684,13 @@ function PlayerContent() {
               <>
                 <span className="text-white/20">•</span>
                 <span className="text-white/50 text-[10px] font-black">{imageTimeLeft}s</span>
+              </>
+            )}
+            {/* YouTube Live countdown */}
+            {currentItem.type === 'YOUTUBE' && ytIsLive && (
+              <>
+                <span className="text-white/20">•</span>
+                <span className="text-red-400/80 text-[10px] font-black">{imageTimeLeft}s</span>
               </>
             )}
             {(currentItem.type === 'VIDEO' || currentItem.type === 'YOUTUBE') && (

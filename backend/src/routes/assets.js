@@ -336,7 +336,7 @@ async function assetRoutes(fastify, opts) {
 
   // POST YouTube Asset (no file upload)
   fastify.post('/assets/youtube', async (request, reply) => {
-    const { name, url } = request.body || {};
+    const { name, url, duration } = request.body || {};
     if (!name || !url) return reply.code(400).send({ error: 'name and url required' });
 
     // Parse YouTube video ID from various URL formats
@@ -368,7 +368,7 @@ async function assetRoutes(fastify, opts) {
         size: BigInt(0),
         mimeType: 'video/youtube',
         orientation: 'LANDSCAPE',
-        duration: 30,
+        duration: duration || 120,
       },
     });
     return { ...asset, size: asset.size.toString() };

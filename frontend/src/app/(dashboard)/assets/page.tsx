@@ -231,13 +231,13 @@ export default function AssetLibrary() {
     setShowYoutubeModal(true);
   };
 
-  const handleSaveYouTube = async (name: string, url: string) => {
+  const handleSaveYouTube = async (name: string, url: string, duration: number) => {
     if (editingYouTubeAsset) {
-      await api.patch(`/assets/${editingYouTubeAsset.id}`, { name, url });
+      await api.patch(`/assets/${editingYouTubeAsset.id}`, { name, url, duration });
       setEditingYouTubeAsset(null);
       fetchAssets();
     } else {
-      await api.post('/assets/youtube', { name, url });
+      await api.post('/assets/youtube', { name, url, duration });
       fetchAssets();
     }
   };
@@ -1476,7 +1476,7 @@ export default function AssetLibrary() {
           setEditingYouTubeAsset(null);
         }}
         onSave={handleSaveYouTube}
-        initialData={editingYouTubeAsset ? { name: editingYouTubeAsset.name, url: editingYouTubeAsset.url } : null}
+        initialData={editingYouTubeAsset ? { name: editingYouTubeAsset.name, url: editingYouTubeAsset.url, duration: editingYouTubeAsset.duration } : null}
       />
 
     </div>

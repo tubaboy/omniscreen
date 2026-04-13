@@ -328,7 +328,7 @@ async function assetRoutes(fastify, opts) {
         size: BigInt(0),
         mimeType: 'application/json',
         orientation: 'LANDSCAPE',
-        duration: (config && config.duration) ? config.duration : 30,
+        duration: (config && config.duration) ? config.duration : 120,
       },
     });
     return { ...asset, size: asset.size.toString() };
@@ -388,7 +388,7 @@ async function assetRoutes(fastify, opts) {
         size: BigInt(0),
         mimeType: 'text/html',
         orientation: 'LANDSCAPE',
-        duration: 30,
+        duration: 120,
       },
     });
     return { ...asset, size: asset.size.toString() };
@@ -399,15 +399,46 @@ async function assetRoutes(fastify, opts) {
     const { id } = request.params;
     const { tags, name, validFrom, validUntil, widgetType, config, duration, url } = request.body || {};
 
+    const current = await fastify.prisma.asset.findUnique({ where: { id } });
+    if (!current) return reply.code(404).send({ error: 'Asset not found' });
+
     let urlUpdate = {};
     if (url !== undefined) {
-      urlUpdate = { 
-        url,
-        thumbnailUrl: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`
-      };
+      if (current.type === 'YOUTUBE') {
+        const extractYouTubeId = (rawUrl) => {
+          try {
+            const patterns = [
+              /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+              /^([a-zA-Z0-9_-]{11})$/,
+            ];
+            for (const pattern of patterns) {
+              const match = rawUrl.match(pattern);
+              if (match) return match[1];
+            }
+          } catch {}
+          return null;
+        };
+        const videoId = extractYouTubeId(url);
+        if (videoId) {
+          urlUpdate = {
+            url: videoId,
+            thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+          };
+        } else {
+          urlUpdate = { url }; // Fallback
+        }
+      } else {
+        try {
+          const parsedUrl = new URL(url);
+          urlUpdate = { 
+            url,
+            thumbnailUrl: `https://www.google.com/s2/favicons?domain=${parsedUrl.hostname}&sz=128`
+          };
+        } catch (e) {
+          urlUpdate = { url }; // Not a valid absolute URL, just update the string
+        }
+      }
     } else if (widgetType !== undefined || config !== undefined) {
-      // Re-fetch current to merge config and handle background cleanup
-      const current = await fastify.prisma.asset.findUnique({ where: { id } });
       let currentConfig = { config: {} };
       try { currentConfig = JSON.parse(current.url || '{}'); } catch {}
       

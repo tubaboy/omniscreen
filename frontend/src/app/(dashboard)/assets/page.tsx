@@ -304,7 +304,7 @@ export default function AssetLibrary() {
     const payload = {
       name: widgetForm.name,
       widgetType: widgetForm.widgetType,
-      duration: 30, // Default fallback, scheduling will override
+      duration: 120, // Default fallback, scheduling will override
       config: {
         bgImageUrl: widgetForm.bgImageUrl,
         showDate: widgetForm.showDate,

@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Youtube, Link, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { X, Youtube, Link, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface YouTubeAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, url: string, duration: number) => Promise<void>;
-  initialData?: { name: string; url: string; duration?: number } | null;
+  onSave: (name: string, url: string) => Promise<void>;
+  initialData?: { name: string; url: string } | null;
 }
 
 // Extract YouTube video ID and return a preview thumbnail URL
@@ -26,7 +26,6 @@ function parseYouTubeId(raw: string): string | null {
 export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData }: YouTubeAssetModalProps) {
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
-  const [duration, setDuration] = useState(120);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,12 +33,10 @@ export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData
     if (isOpen) {
       setUrl(initialData?.url || '');
       setName(initialData?.name || '');
-      setDuration(initialData?.duration || 120);
       setError('');
     } else {
       setUrl('');
       setName('');
-      setDuration(120);
       setError('');
     }
   }, [isOpen, initialData]);
@@ -70,10 +67,9 @@ export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData
     }
     setIsSaving(true);
     try {
-      await onSave(name.trim(), url.trim(), duration);
+      await onSave(name.trim(), url.trim());
       setUrl('');
       setName('');
-      setDuration(120);
       setError('');
       onClose();
     } catch (err: unknown) {
@@ -155,24 +151,9 @@ export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData
             />
           </div>
 
-          {/* Duration Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-              <Clock size={14} />
-              直播播放時長（秒）
-            </label>
-            <input
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(Math.max(10, parseInt(e.target.value) || 10))}
-              min={10}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:bg-white transition-all"
-            />
-          </div>
-
           {/* Notes */}
           <p className="text-[11px] text-slate-400 font-medium bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
-            💡 一般影片會播放至結束後自動切換下一個素材。若為<strong className="text-red-500">直播影片</strong>，系統會自動偵測並在上方設定的秒數後切換。
+            💡 一般影片會播放至結束後自動切換。若為<strong className="text-red-500">直播影片</strong>，系統會自動偵測並依排程中設定的秒數切換。
           </p>
 
           {/* Error */}

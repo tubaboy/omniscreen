@@ -130,15 +130,15 @@ function SortableQueueItem({
       {/* Name */}
       <p className="flex-1 text-xs font-bold text-slate-700 truncate">{asset.name}</p>
 
-      {/* Duration Input for Images, Widgets and Web Assets */}
-      {(asset.type === 'IMAGE' || asset.type === 'WIDGET' || asset.type === 'WEB') && (
+      {/* Duration Input for Images, Widgets, Web and YouTube Assets */}
+      {(asset.type === 'IMAGE' || asset.type === 'WIDGET' || asset.type === 'WEB' || asset.type === 'YOUTUBE') && (
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <Clock size={12} className="text-slate-400" />
           <input
             type="number"
             min="1"
             className="w-14 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-center"
-            value={item.durationForSchedule || asset.duration || 30}
+            value={item.durationForSchedule || asset.duration || 120}
             onChange={(e) => onDurationChange(item.queueKey, parseInt(e.target.value) || 10)}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()} // 防止被 dnd-kit 攔截
@@ -262,7 +262,7 @@ export default function ScheduleManagement() {
     setQueue(schedule.items.map(item => ({
       queueKey: uid(),
       asset: item.asset,
-      durationForSchedule: (item as any).duration || item.asset.duration || 30,
+      durationForSchedule: (item as any).duration || item.asset.duration || 120,
     })));
     setIsActive(schedule.isActive);
     window.scrollTo({ top: 0, behavior: 'smooth' });

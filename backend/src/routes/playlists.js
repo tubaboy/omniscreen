@@ -99,6 +99,7 @@ async function playlistRoutes(fastify, opts) {
           duration: item.duration || fixedAsset.duration || 10,
           orientation: fixedAsset.orientation,
           widgetConfig,
+          transition: winningSchedule.transition,
         };
       });
   });
@@ -107,7 +108,7 @@ async function playlistRoutes(fastify, opts) {
   fastify.post('/schedules', async (request, reply) => {
     const {
       name, screenId, startTime, endTime, daysOfWeek,
-      priority, assetItems = [], startDate, endDate, isActive,
+      priority, assetItems = [], startDate, endDate, isActive, transition
     } = request.body;
 
     return fastify.prisma.schedule.create({
@@ -118,6 +119,7 @@ async function playlistRoutes(fastify, opts) {
         endTime,
         daysOfWeek,
         priority: priority ?? 1,
+        transition: transition || 'FADE',
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         isActive: isActive !== undefined ? isActive : true,
@@ -137,7 +139,7 @@ async function playlistRoutes(fastify, opts) {
   fastify.post('/schedules/batch', async (request, reply) => {
     const {
       name, screenIds, startTime, endTime, daysOfWeek,
-      priority, assetItems = [], startDate, endDate, isActive,
+      priority, assetItems = [], startDate, endDate, isActive, transition
     } = request.body;
 
     if (!Array.isArray(screenIds) || screenIds.length === 0) {
@@ -154,6 +156,7 @@ async function playlistRoutes(fastify, opts) {
             endTime,
             daysOfWeek,
             priority: priority ?? 1,
+            transition: transition || 'FADE',
             startDate: startDate ? new Date(startDate) : null,
             endDate: endDate ? new Date(endDate) : null,
             isActive: isActive !== undefined ? isActive : true,
@@ -201,7 +204,7 @@ async function playlistRoutes(fastify, opts) {
     const { id } = request.params;
     const {
       name, screenId, startTime, endTime, daysOfWeek,
-      priority, assetItems, isActive, startDate, endDate,
+      priority, assetItems, isActive, startDate, endDate, transition
     } = request.body;
 
     return fastify.prisma.$transaction(async (tx) => {
@@ -218,6 +221,7 @@ async function playlistRoutes(fastify, opts) {
           daysOfWeek,
           priority,
           isActive,
+          transition,
           // undefined means "don't change"; null means "clear the date"
           startDate: startDate !== undefined ? (startDate ? new Date(startDate) : null) : undefined,
           endDate: endDate !== undefined ? (endDate ? new Date(endDate) : null) : undefined,

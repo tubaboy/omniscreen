@@ -18,6 +18,7 @@ interface PlaylistItem {
   url: string | null;
   duration: number;
   widgetConfig?: WidgetConfig;
+  transition?: string;
 }
 
 function PlayerContent() {
@@ -485,6 +486,46 @@ function PlayerContent() {
     }
   }, [playlist, currentIndex, transitionTo, logPlayback, clearYtLiveTimer]);
 
+  const getTransitionStyle = (effect: string = 'FADE', state: string) => {
+    const baseTransition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+    const styles: React.CSSProperties = {
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: baseTransition,
+    };
+
+    if (effect === 'NONE') {
+      styles.opacity = state === 'visible' ? 1 : 0;
+      styles.transition = 'none'; // 瞬間切換
+      return styles;
+    }
+
+    if (effect === 'SLIDE_LEFT') {
+      styles.opacity = state === 'visible' ? 1 : 0;
+      styles.transform = state === 'fading-in' ? 'translateX(100%)' : state === 'fading-out' ? 'translateX(-100%)' : 'translateX(0)';
+      return styles;
+    }
+
+    if (effect === 'BLUR_FADE') {
+      styles.opacity = state === 'visible' ? 1 : 0;
+      styles.filter = state === 'visible' ? 'blur(0px)' : 'blur(10px)';
+      return styles;
+    }
+
+    if (effect === 'ZOOM_FADE') {
+      styles.opacity = state === 'visible' ? 1 : 0;
+      styles.transform = state === 'fading-in' ? 'scale(1.1)' : state === 'fading-out' ? 'scale(0.9)' : 'scale(1)';
+      return styles;
+    }
+
+    // Default: FADE
+    styles.opacity = state === 'visible' ? 1 : 0;
+    return styles;
+  };
+
   if (loading) return <div className="text-white flex items-center justify-center h-full">Loading Playlist...</div>;
   if (playlist.length === 0) return <div className="text-white flex items-center justify-center h-full">No active schedule.</div>;
 
@@ -525,7 +566,7 @@ function PlayerContent() {
       {/* Media Layer */}
       <div
         key={`${currentIndex}-${refreshKey}`}
-        style={{ opacity, transition: 'opacity 0.3s ease-in-out', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={getTransitionStyle(currentItem.transition, fadeState)}
       >
         {currentItem.type === 'WIDGET' ? (
           <WidgetRenderer widgetConfig={currentItem.widgetConfig!} />

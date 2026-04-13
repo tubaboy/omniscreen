@@ -204,6 +204,7 @@ export default function ScheduleManagement() {
   const [endDate, setEndDate] = useState('');
   const [priority, setPriority] = useState(1);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [transition, setTransition] = useState('FADE');
   // Queue: ordered array of asset objects with optional duration override
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isActive, setIsActive] = useState(true);
@@ -245,6 +246,7 @@ export default function ScheduleManagement() {
     setEndDate('');
     setPriority(1);
     setDaysOfWeek([0, 1, 2, 3, 4, 5, 6]);
+    setTransition('FADE');
     setQueue([]);
     setIsActive(true);
   };
@@ -259,6 +261,7 @@ export default function ScheduleManagement() {
     setEndDate(schedule.endDate ? schedule.endDate.split('T')[0] : '');
     setPriority(schedule.priority ?? 1);
     setDaysOfWeek((schedule as any).daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6]);
+    setTransition((schedule as any).transition ?? 'FADE');
     setQueue(schedule.items.map(item => ({
       queueKey: uid(),
       asset: item.asset,
@@ -305,6 +308,7 @@ export default function ScheduleManagement() {
       daysOfWeek,
       assetItems,
       priority,
+      transition,
       isActive,
       startDate: startDate || null,
       endDate: endDate || null,
@@ -576,6 +580,24 @@ export default function ScheduleManagement() {
                     onChange={e => setPriority(parseInt(e.target.value) || 1)}
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none"
                   />
+                </div>
+
+                {/* Transition Picker */}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                    過場效果
+                  </label>
+                  <select
+                    value={transition}
+                    onChange={e => setTransition(e.target.value)}
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none"
+                  >
+                    <option value="FADE">淡入淡出 (預設)</option>
+                    <option value="NONE">無過場</option>
+                    <option value="SLIDE_LEFT">向左滑動</option>
+                    <option value="BLUR_FADE">模糊漸變</option>
+                    <option value="ZOOM_FADE">縮放淡入</option>
+                  </select>
                 </div>
 
                 {/* Active toggle */}

@@ -65,6 +65,7 @@ model Schedule {
   daysOfWeek Int[]
   priority   Int            @default(1)
   isActive   Boolean        @default(true)
+  transition String         @default("FADE")
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   endDate    DateTime?

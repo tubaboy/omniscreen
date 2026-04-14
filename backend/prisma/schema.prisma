@@ -54,6 +54,7 @@ model Asset {
   validFrom    DateTime?
   validUntil   DateTime?
   playlists    PlaylistItem[]
+  scheduledFrames Schedule[]   @relation("ScheduleFrame")
 }
 
 model Schedule {
@@ -71,6 +72,9 @@ model Schedule {
   endDate    DateTime?
   startDate  DateTime?
   items      PlaylistItem[]
+  frameId    String?
+  frame      Asset?         @relation("ScheduleFrame", fields: [frameId], references: [id])
+  layoutConfig Json?
   screen     Screen         @relation(fields: [screenId], references: [id], onDelete: Cascade)
 }
 

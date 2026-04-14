@@ -53,6 +53,7 @@ async function playlistRoutes(fastify, opts) {
         ],
       },
       include: {
+        frame: true,
         items: {
           orderBy: { order: 'asc' },
           include: { asset: true },
@@ -100,6 +101,8 @@ async function playlistRoutes(fastify, opts) {
           orientation: fixedAsset.orientation,
           widgetConfig,
           transition: winningSchedule.transition,
+          frameUrl: winningSchedule.frame ? fixAssetUrls(winningSchedule.frame, request).url : null,
+          layoutConfig: winningSchedule.layoutConfig || null,
         };
       });
   });
@@ -108,7 +111,7 @@ async function playlistRoutes(fastify, opts) {
   fastify.post('/schedules', async (request, reply) => {
     const {
       name, screenId, startTime, endTime, daysOfWeek,
-      priority, assetItems = [], startDate, endDate, isActive, transition
+      priority, assetItems = [], startDate, endDate, isActive, transition, frameId, layoutConfig
     } = request.body;
 
     return fastify.prisma.schedule.create({
@@ -120,6 +123,8 @@ async function playlistRoutes(fastify, opts) {
         daysOfWeek,
         priority: priority ?? 1,
         transition: transition || 'FADE',
+        frameId: frameId || null,
+        layoutConfig: layoutConfig || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         isActive: isActive !== undefined ? isActive : true,
@@ -139,7 +144,7 @@ async function playlistRoutes(fastify, opts) {
   fastify.post('/schedules/batch', async (request, reply) => {
     const {
       name, screenIds, startTime, endTime, daysOfWeek,
-      priority, assetItems = [], startDate, endDate, isActive, transition
+      priority, assetItems = [], startDate, endDate, isActive, transition, frameId, layoutConfig
     } = request.body;
 
     if (!Array.isArray(screenIds) || screenIds.length === 0) {
@@ -157,6 +162,8 @@ async function playlistRoutes(fastify, opts) {
             daysOfWeek,
             priority: priority ?? 1,
             transition: transition || 'FADE',
+            frameId: frameId || null,
+            layoutConfig: layoutConfig || null,
             startDate: startDate ? new Date(startDate) : null,
             endDate: endDate ? new Date(endDate) : null,
             isActive: isActive !== undefined ? isActive : true,
@@ -181,6 +188,7 @@ async function playlistRoutes(fastify, opts) {
     const schedules = await fastify.prisma.schedule.findMany({
       include: {
         screen: true,
+        frame: true,
         items: {
           orderBy: { order: 'asc' },
           include: { asset: true },
@@ -192,6 +200,7 @@ async function playlistRoutes(fastify, opts) {
     // Fix asset URLs in every schedule's items
     return schedules.map(schedule => ({
       ...schedule,
+      frame: schedule.frame ? fixAssetUrls(schedule.frame, request) : null,
       items: schedule.items.map(item => ({
         ...item,
         asset: fixAssetUrls(item.asset, request),
@@ -204,7 +213,7 @@ async function playlistRoutes(fastify, opts) {
     const { id } = request.params;
     const {
       name, screenId, startTime, endTime, daysOfWeek,
-      priority, assetItems, isActive, startDate, endDate, transition
+      priority, assetItems, isActive, startDate, endDate, transition, frameId, layoutConfig
     } = request.body;
 
     return fastify.prisma.$transaction(async (tx) => {
@@ -222,6 +231,8 @@ async function playlistRoutes(fastify, opts) {
           priority,
           isActive,
           transition,
+          frameId: frameId !== undefined ? (frameId || null) : undefined,
+          layoutConfig: layoutConfig !== undefined ? (layoutConfig || null) : undefined,
           // undefined means "don't change"; null means "clear the date"
           startDate: startDate !== undefined ? (startDate ? new Date(startDate) : null) : undefined,
           endDate: endDate !== undefined ? (endDate ? new Date(endDate) : null) : undefined,
@@ -252,11 +263,12 @@ async function playlistRoutes(fastify, opts) {
     const { screenId } = request.params;
     const schedules = await fastify.prisma.schedule.findMany({
       where: { screenId },
-      include: { items: { include: { asset: true } } },
+      include: { frame: true, items: { include: { asset: true } } },
     });
 
     return schedules.map(schedule => ({
       ...schedule,
+      frame: schedule.frame ? fixAssetUrls(schedule.frame, request) : null,
       items: schedule.items.map(item => ({
         ...item,
         asset: fixAssetUrls(item.asset, request),

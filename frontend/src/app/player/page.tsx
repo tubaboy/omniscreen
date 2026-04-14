@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, Suspense, useCallback } from 'react';
+import React, { useEffect, useState, useRef, Suspense, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Volume2, VolumeX } from 'lucide-react';
 import YouTube from 'react-youtube';
@@ -8,6 +8,13 @@ import api from '@/lib/api';
 import WidgetRenderer, { WidgetConfig } from '@/components/WidgetRenderer';
 
 import { savePlaylist, loadPlaylist, precacheUrls } from '@/hooks/useOfflinePlaylist';
+
+interface LayoutConfig {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
 
 interface PlaylistItem {
   id: string;
@@ -19,6 +26,8 @@ interface PlaylistItem {
   duration: number;
   widgetConfig?: WidgetConfig;
   transition?: string;
+  frameUrl?: string;
+  layoutConfig?: LayoutConfig | null;
 }
 
 function PlayerContent() {
@@ -157,7 +166,6 @@ function PlayerContent() {
 
     if (timerRef.current) clearTimeout(timerRef.current);
     pendingIndexRef.current = nextIndex;
-    setRefreshKey(prev => prev + 1);
     setFadeState('fading-out');
   }, [fadeState, playlist, currentIndex, logPlayback, clearYtLiveTimer]);
 
@@ -295,7 +303,12 @@ function PlayerContent() {
           setPlaylist(prev => {
             if (
               prev.length === newPlaylist.length &&
-              prev.every((item, i) => item.id === newPlaylist[i].id && item.duration === newPlaylist[i].duration)
+              prev.every((item, i) => 
+                item.id === newPlaylist[i].id && 
+                item.duration === newPlaylist[i].duration &&
+                item.frameUrl === newPlaylist[i].frameUrl &&
+                JSON.stringify(item.layoutConfig) === JSON.stringify(newPlaylist[i].layoutConfig)
+              )
             ) {
               return prev;
             }
@@ -380,6 +393,7 @@ function PlayerContent() {
     if (fadeState === 'fading-out') {
       const t = setTimeout(() => {
         setCurrentIndex(pendingIndexRef.current);
+        setRefreshKey(prev => prev + 1);
         setFadeState('fading-in');
       }, 300);
       return () => clearTimeout(t);
@@ -542,7 +556,7 @@ function PlayerContent() {
   if (loading) return <div className="text-white flex items-center justify-center h-full">Loading Playlist...</div>;
   if (playlist.length === 0) return <div className="text-white flex items-center justify-center h-full">No active schedule.</div>;
 
-  const currentItem = playlist[currentIndex] ?? playlist[0];
+  const currentItem = playlist[currentIndex] ?? playlist[0] ?? null;
   if (!currentItem) return <div className="text-white flex items-center justify-center h-full">Updating playlist…</div>;
 
   const opacity = fadeState === 'visible' ? 1 : 0;
@@ -576,11 +590,20 @@ function PlayerContent() {
         </div>
       )}
 
-      {/* Media Layer */}
-      <div
-        key={`${currentIndex}-${refreshKey}`}
-        style={getTransitionStyle(currentItem.transition, fadeState)}
+      {/* Media Layers Wrapper */}
+      <div 
+        className="absolute z-10 flex items-center justify-center transition-all duration-300"
+        style={currentItem.layoutConfig ? {
+          top: `${currentItem.layoutConfig.top}%`,
+          left: `${currentItem.layoutConfig.left}%`,
+          width: `${currentItem.layoutConfig.width}%`,
+          height: `${currentItem.layoutConfig.height}%`,
+        } : { top: 0, left: 0, width: '100%', height: '100%' }}
       >
+        <div
+          key={`${currentIndex}-${refreshKey}`}
+          style={{ ...getTransitionStyle(currentItem.transition, fadeState), width: '100%', height: '100%' }}
+        >
         {currentItem.type === 'WIDGET' ? (
           <WidgetRenderer widgetConfig={currentItem.widgetConfig!} />
         ) : currentItem.type === 'WEB' ? (
@@ -660,7 +683,15 @@ function PlayerContent() {
             }}
           />
         )}
+        </div>
       </div>
+
+      {/* Frame Overlay Layer */}
+      {currentItem.frameUrl && (
+        <div className="absolute inset-0 z-20 pointer-events-none">
+          <img src={currentItem.frameUrl} alt="Frame Overlay" className="w-full h-full object-cover" />
+        </div>
+      )}
 
       {/* Sound Toggle Button */}
       {currentItem.type === 'VIDEO' && currentItem.url && (

@@ -44,6 +44,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+interface LayoutConfig {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
 interface Schedule {
   id: string;
   name: string;
@@ -54,6 +61,9 @@ interface Schedule {
   priority: number;
   startDate: string | null;
   endDate: string | null;
+  frameId?: string | null;
+  frame?: Asset | null;
+  layoutConfig?: LayoutConfig | null;
   screen: Screen;
   items: { asset: Asset }[];
 }
@@ -205,6 +215,8 @@ export default function ScheduleManagement() {
   const [priority, setPriority] = useState(1);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [transition, setTransition] = useState('FADE');
+  const [frameId, setFrameId] = useState<string>('');
+  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig | null>(null);
   // Queue: ordered array of asset objects with optional duration override
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isActive, setIsActive] = useState(true);
@@ -247,6 +259,8 @@ export default function ScheduleManagement() {
     setPriority(1);
     setDaysOfWeek([0, 1, 2, 3, 4, 5, 6]);
     setTransition('FADE');
+    setFrameId('');
+    setLayoutConfig(null);
     setQueue([]);
     setIsActive(true);
   };
@@ -262,6 +276,8 @@ export default function ScheduleManagement() {
     setPriority(schedule.priority ?? 1);
     setDaysOfWeek((schedule as any).daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6]);
     setTransition((schedule as any).transition ?? 'FADE');
+    setFrameId(schedule.frameId ?? '');
+    setLayoutConfig((schedule as any).layoutConfig ?? null);
     setQueue(schedule.items.map(item => ({
       queueKey: uid(),
       asset: item.asset,
@@ -309,6 +325,8 @@ export default function ScheduleManagement() {
       assetItems,
       priority,
       transition,
+      frameId: frameId || null,
+      layoutConfig: frameId ? layoutConfig : null,
       isActive,
       startDate: startDate || null,
       endDate: endDate || null,
@@ -345,6 +363,13 @@ export default function ScheduleManagement() {
     setQueue(prev => prev.map(q =>
       q.queueKey === queueKey ? { ...q, durationForSchedule: newDuration } : q
     ));
+  };
+
+  const handleLayoutChange = (key: keyof LayoutConfig, value: number) => {
+    setLayoutConfig(prev => {
+      const base = prev || { top: 0, left: 0, width: 100, height: 100 };
+      return { ...base, [key]: value };
+    });
   };
 
   // DnD handlers
@@ -600,6 +625,92 @@ export default function ScheduleManagement() {
                   </select>
                 </div>
 
+                {/* Frame Picker */}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                    外框設定 (Frame)
+                  </label>
+                  <select
+                    value={frameId}
+                    onChange={e => setFrameId(e.target.value)}
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold outline-none"
+                  >
+                    <option value="">無外框 (預設)</option>
+                    {assets.filter(a => a.type === 'IMAGE').map(asset => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Layout Config (Only show if frameId is selected) */}
+                {frameId && (
+                  <div className="border border-slate-200 bg-white rounded-2xl p-4 mt-2 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        內容播放區域裁切 (可搭配外框去背範圍)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setLayoutConfig({ top: 0, left: 0, width: 100, height: 100 })}
+                        className="text-[9px] font-black text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-2 py-1 rounded shadow-sm"
+                      >
+                        重置為滿版
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                      {/* Sliders */}
+                      <div className="space-y-4">
+                        {[
+                          { key: 'top', label: '上邊界 (Top)', color: 'text-rose-500', accent: 'accent-rose-500' },
+                          { key: 'left', label: '左邊界 (Left)', color: 'text-indigo-500', accent: 'accent-indigo-500' },
+                          { key: 'width', label: '寬度 (Width)', color: 'text-emerald-500', accent: 'accent-emerald-500' },
+                          { key: 'height', label: '高度 (Height)', color: 'text-amber-500', accent: 'accent-amber-500' },
+                        ].map(slider => (
+                          <div key={slider.key}>
+                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1.5">
+                              <span className={slider.color}>{slider.label}</span>
+                              <span className="text-slate-500">{layoutConfig?.[slider.key as keyof LayoutConfig] ?? (slider.key.includes('width') || slider.key.includes('height') ? 100 : 0)}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={layoutConfig?.[slider.key as keyof LayoutConfig] ?? (slider.key.includes('width') || slider.key.includes('height') ? 100 : 0)}
+                              onChange={e => handleLayoutChange(slider.key as keyof LayoutConfig, parseInt(e.target.value))}
+                              className={`w-full ${slider.accent}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Preview Box */}
+                      <div className="flex justify-center items-center">
+                        <div className="w-full aspect-video bg-slate-100 rounded-xl relative overflow-hidden border border-slate-200">
+                          <img 
+                            src={assets.find(a => a.id === frameId)?.url} 
+                            className="w-full h-full object-cover opacity-85"
+                            alt="Frame Preview"
+                          />
+                          <div 
+                            className="absolute bg-blue-500/40 border-2 border-blue-500 flex items-center justify-center backdrop-blur-[1px] transition-all duration-75 shadow-lg shadow-blue-500/20"
+                            style={{
+                              top: `${layoutConfig?.top ?? 0}%`,
+                              left: `${layoutConfig?.left ?? 0}%`,
+                              width: `${layoutConfig?.width ?? 100}%`,
+                              height: `${layoutConfig?.height ?? 100}%`
+                            }}
+                          >
+                            <span className="text-[10px] font-black text-white bg-blue-600/80 px-2 py-0.5 rounded shadow">內容區</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Active toggle */}
                 <div className="flex items-center justify-between pt-2 px-1">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -831,6 +942,13 @@ export default function ScheduleManagement() {
                       }`}>
                       P{schedule.priority}
                     </div>
+                    {/* Frame Badge */}
+                    {schedule.frame && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border border-purple-100 rounded-full text-[10px] font-black text-purple-600">
+                        <ImageIcon size={11} />
+                        套用外框: {schedule.frame.name}
+                      </div>
+                    )}
                     {/* Date Range Badge */}
                     {(schedule.startDate || schedule.endDate) && (
                       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full text-[10px] font-black text-blue-600">

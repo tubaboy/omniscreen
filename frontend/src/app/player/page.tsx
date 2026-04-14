@@ -437,8 +437,8 @@ function PlayerContent() {
     return () => { clearYtLiveTimer(); };
   }, [currentIndex, clearYtLiveTimer]);
 
-  // YouTube live detection handler — called from onReady and onStateChange
-  const handleYtLiveDetection = useCallback((player: any) => {
+  // YouTube timing handler — called from onReady and onStateChange
+  const startYouTubeTimer = useCallback((player: any) => {
     // Already detected and timer running, skip
     if (ytTimerRef.current) return;
 
@@ -447,42 +447,37 @@ function PlayerContent() {
 
     try {
       const ytDuration = player.getDuration();
-      // getDuration() returns 0 for live streams, or a very large number for DVR-enabled live
-      const isLive = ytDuration === 0 || ytDuration > 86400; // > 24hrs = treat as live
-      console.log(`[YT] getDuration()=${ytDuration}, isLive=${isLive}`);
+      // Optional: still detect live for HUD badges
+      const isLive = ytDuration === 0 || ytDuration > 86400; 
+      setYtIsLive(isLive);
+      
+      const dur = currentItem.duration || 120;
+      ytLiveStartRef.current = Date.now();
+      setImageTimeLeft(dur);
 
-      if (isLive) {
-        setYtIsLive(true);
-        const dur = currentItem.duration || 120;
-        ytLiveStartRef.current = Date.now();
-        setImageTimeLeft(dur);
+      // Start countdown tick for progress bar & HUD
+      ytLiveTickRef.current = setInterval(() => {
+        const elapsed = (Date.now() - ytLiveStartRef.current) / 1000;
+        const left = Math.max(0, dur - elapsed);
+        setImageTimeLeft(Math.ceil(left));
+        if (left <= 0 && ytLiveTickRef.current) clearInterval(ytLiveTickRef.current);
+      }, 200);
 
-        // Start countdown tick
-        ytLiveTickRef.current = setInterval(() => {
-          const elapsed = (Date.now() - ytLiveStartRef.current) / 1000;
-          const left = Math.max(0, dur - elapsed);
-          setImageTimeLeft(Math.ceil(left));
-          if (left <= 0 && ytLiveTickRef.current) clearInterval(ytLiveTickRef.current);
-        }, 200);
-
-        // Fallback timer to force transition
-        if (playlist.length > 1) {
-          ytTimerRef.current = setTimeout(() => {
-            console.log('[YT Live] Duration reached, transitioning to next');
-            transitionTo((currentIndex + 1) % playlist.length);
-          }, dur * 1000);
-        } else {
-          // Single YT live item: log and restart cycle
-          ytTimerRef.current = setTimeout(() => {
-            console.log('[YT Live] Single item cycle complete, logging');
-            logPlayback(currentItem, dur);
-            clearYtLiveTimer();
-            setSingleItemTick(c => c + 1);
-          }, dur * 1000);
-        }
+      // Fallback timer to force transition (guarantees playlist progression)
+      if (playlist.length > 1) {
+        ytTimerRef.current = setTimeout(() => {
+          transitionTo((currentIndex + 1) % playlist.length);
+        }, dur * 1000);
+      } else {
+        // Single item: log and restart cycle
+        ytTimerRef.current = setTimeout(() => {
+          logPlayback(currentItem, dur);
+          clearYtLiveTimer();
+          setSingleItemTick(c => c + 1);
+        }, dur * 1000);
       }
     } catch (err) {
-      console.warn('[YT] getDuration() failed:', err);
+      console.warn('[YT] timer setup failed:', err);
     }
   }, [playlist, currentIndex, transitionTo, logPlayback, clearYtLiveTimer]);
 
@@ -608,13 +603,13 @@ function PlayerContent() {
             }}
             onReady={(e) => {
               if (isMuted) e.target.mute(); else e.target.unMute();
-              // Attempt live detection on ready
-              handleYtLiveDetection(e.target);
+              // Start timer on ready
+              startYouTubeTimer(e.target);
             }}
             onStateChange={(e) => {
-              // State 1 = PLAYING — best time to re-check duration (some live streams report 0 only after buffering)
+              // State 1 = PLAYING
               if (e.data === 1) {
-                handleYtLiveDetection(e.target);
+                startYouTubeTimer(e.target);
               }
             }}
           />
@@ -696,11 +691,9 @@ function PlayerContent() {
           <div
             className="h-1 bg-white/70 transition-all duration-200"
             style={{
-              width: currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB'
+              width: currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB' || currentItem.type === 'YOUTUBE'
                 ? `${((currentItem.duration - imageTimeLeft) / currentItem.duration) * 100}%`
-                : currentItem.type === 'YOUTUBE' && ytIsLive
-                  ? `${((currentItem.duration - imageTimeLeft) / currentItem.duration) * 100}%`
-                  : `${videoProgress * 100}%`,
+                : `${videoProgress * 100}%`,
             }}
           />
         </div>
@@ -727,17 +720,10 @@ function PlayerContent() {
             <span className="text-white/50 text-[10px] font-black">
               {currentIndex + 1} / {playlist.length}
             </span>
-            {(currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB') && (
+            {(currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB' || currentItem.type === 'YOUTUBE') && (
               <>
                 <span className="text-white/20">•</span>
                 <span className="text-white/50 text-[10px] font-black">{imageTimeLeft}s</span>
-              </>
-            )}
-            {/* YouTube Live countdown */}
-            {currentItem.type === 'YOUTUBE' && ytIsLive && (
-              <>
-                <span className="text-white/20">•</span>
-                <span className="text-red-400/80 text-[10px] font-black">{imageTimeLeft}s</span>
               </>
             )}
             {(currentItem.type === 'VIDEO' || currentItem.type === 'YOUTUBE') && (

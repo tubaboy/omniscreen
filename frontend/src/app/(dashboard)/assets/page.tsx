@@ -518,15 +518,14 @@ export default function AssetLibrary() {
               YouTube
             </button>
             {/* Upload Button */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="group relative inline-flex items-center px-6 py-4 bg-[#1A5336] text-white rounded-2xl font-bold shadow-xl shadow-green-900/10 hover:bg-[#1A5336]/90 transition-all overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
+            <label
+              htmlFor="asset-upload-input"
+              className={`group relative inline-flex items-center px-6 py-4 bg-[#1A5336] text-white rounded-2xl font-bold shadow-xl shadow-green-900/10 hover:bg-[#1A5336]/90 transition-all overflow-hidden cursor-pointer ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
               <Upload size={18} className="mr-2" />
               {uploading ? `上傳中 ${uploadProgress}%` : '上傳新素材'}
-            </button>
+            </label>
           </div>
 
           {/* Upload Progress Bar */}
@@ -542,6 +541,7 @@ export default function AssetLibrary() {
 
         <input
           type="file"
+          id="asset-upload-input"
           ref={fileInputRef}
           onChange={handleUpload}
           className="hidden"
@@ -743,15 +743,15 @@ export default function AssetLibrary() {
       <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-6 space-y-6">
         {/* Special Add Box */}
         <div className="break-inside-avoid">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full aspect-[3/4] border-2 border-dashed border-slate-200 rounded-[28px] flex flex-col items-center justify-center text-slate-400 hover:border-[#1A5336] hover:text-[#1A5336] hover:bg-green-50/30 transition-all group"
+          <label
+            htmlFor="asset-upload-input"
+            className="w-full aspect-[3/4] border-2 border-dashed border-slate-200 rounded-[28px] flex flex-col items-center justify-center text-slate-400 hover:border-[#1A5336] hover:text-[#1A5336] hover:bg-green-50/30 transition-all group cursor-pointer"
           >
             <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mb-4 group-hover:bg-[#1A5336]/10 group-hover:scale-110 transition-all">
               <Plus size={32} />
             </div>
             <span className="text-sm font-bold">新增媒體</span>
-          </button>
+          </label>
         </div>
 
         {filtered.map((asset) => {

@@ -68,6 +68,17 @@ const compressImage = (file: File, maxWidth: number = 1920, quality: number = 0.
   });
 };
 
+export const getYoutubeId = (url: string) => {
+  if (!url) return '';
+  try {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : url;
+  } catch (e) {
+    return url;
+  }
+};
+
 export default function AssetLibrary() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -908,9 +919,9 @@ export default function AssetLibrary() {
               </div>
 
               <div className={`relative overflow-hidden bg-slate-100 cursor-pointer ${asset.orientation === 'PORTRAIT' ? 'aspect-[9/16]' : 'aspect-video'}`}>
-                {asset.type === 'IMAGE' || asset.thumbnailUrl ? (
+                {(asset.type === 'IMAGE' || asset.thumbnailUrl) ? (
                   <div className="relative w-full h-full">
-                    <img src={asset.thumbnailUrl || asset.url} alt={asset.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    <img src={asset.thumbnailUrl || (asset.type === 'IMAGE' ? asset.url : '')} alt={asset.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                     {asset.type === 'VIDEO' && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                         <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/30">
@@ -1509,6 +1520,73 @@ export default function AssetLibrary() {
         onSave={handleSaveYouTube}
         initialData={editingYouTubeAsset ? { name: editingYouTubeAsset.name, url: editingYouTubeAsset.url } : null}
       />
+
+      {/* ──── Preview Modal ──── */}
+      {previewAsset && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-10 animate-in fade-in duration-300"
+          onClick={() => setPreviewAsset(null)}
+        >
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-2xl" />
+          
+          <button 
+            onClick={() => setPreviewAsset(null)} 
+            className="absolute top-4 right-4 sm:top-8 sm:right-8 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all z-[110] border border-white/10"
+          >
+            <X size={20} />
+          </button>
+
+          <div 
+            className="relative w-full max-w-6xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10 flex items-center justify-center"
+            onClick={e => e.stopPropagation()}
+          >
+            {previewAsset.type === 'IMAGE' && (
+              <img src={previewAsset.url} className="w-full h-full object-contain" alt={previewAsset.name} />
+            )}
+            
+            {previewAsset.type === 'VIDEO' && (
+              <video src={previewAsset.url} controls autoPlay className="w-full h-full" />
+            )}
+
+            {previewAsset.type === 'WEB' && (
+              <iframe src={previewAsset.url} className="w-full h-full border-none bg-white" title={previewAsset.name} />
+            )}
+
+            {previewAsset.type === 'YOUTUBE' && (
+              <iframe 
+                src={`https://www.youtube.com/embed/${getYoutubeId(previewAsset.url)}?autoplay=1`}
+                className="w-full h-full border-none"
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+              />
+            )}
+
+            {previewAsset.type === 'WIDGET' && (
+              <div className="w-full h-full bg-slate-900 flex items-center justify-center p-10">
+                 <div className="w-full aspect-video scale-90 border-4 border-slate-700 rounded-xl shadow-2xl overflow-hidden bg-slate-950">
+                    <WidgetRenderer widgetConfig={(() => {
+                      try {
+                        return JSON.parse(previewAsset.url);
+                      } catch (e) {
+                        return { widgetType: 'DASHBOARD', config: {} };
+                      }
+                    })()} />
+                 </div>
+              </div>
+            )}
+
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 to-transparent pointer-events-none">
+              <h2 className="text-white font-black text-lg sm:text-xl drop-shadow-md">{previewAsset.name}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="px-2 py-0.5 bg-white/10 rounded text-[9px] font-black text-white/50 uppercase tracking-widest border border-white/5">{previewAsset.type} 素材</span>
+                {previewAsset.orientation && (
+                  <span className="px-2 py-0.5 bg-white/10 rounded text-[9px] font-black text-white/50 uppercase tracking-widest border border-white/5">{previewAsset.orientation}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

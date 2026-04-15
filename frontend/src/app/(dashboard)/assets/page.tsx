@@ -353,6 +353,20 @@ export default function AssetLibrary() {
     setUrlForm({ name: asset.name, url: asset.url });
     setShowUrlModal(true);
   };
+  const triggerUpload = () => {
+    console.log('Triggering upload...');
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      const input = document.getElementById('asset-upload-input');
+      if (input) {
+        (input as HTMLInputElement).click();
+      } else {
+        console.error('Upload input not found');
+        alert('系統錯誤：找不到上傳元件');
+      }
+    }
+  };
 
   const handleUrlSubmit = async () => {
     if (!urlForm.name.trim() || !urlForm.url.trim()) return alert('請輸入名稱與網址');
@@ -518,14 +532,17 @@ export default function AssetLibrary() {
               YouTube
             </button>
             {/* Upload Button */}
-            <label
-              htmlFor="asset-upload-input"
-              className={`group relative inline-flex items-center px-6 py-4 bg-[#1A5336] text-white rounded-2xl font-bold shadow-xl shadow-green-900/10 hover:bg-[#1A5336]/90 transition-all overflow-hidden cursor-pointer ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+            <button
+              onClick={triggerUpload}
+              disabled={uploading}
+              className="group relative inline-flex items-center px-6 py-4 bg-[#1A5336] text-white rounded-2xl font-bold shadow-xl shadow-green-900/10 hover:bg-[#1A5336]/90 transition-all overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-              <Upload size={18} className="mr-2" />
-              {uploading ? `上傳中 ${uploadProgress}%` : '上傳新素材'}
-            </label>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 pointer-events-none" />
+              <Upload size={18} className="mr-2 pointer-events-none" />
+              <span className="pointer-events-none">
+                {uploading ? `上傳中 ${uploadProgress}%` : '上傳新素材'}
+              </span>
+            </button>
           </div>
 
           {/* Upload Progress Bar */}
@@ -539,16 +556,30 @@ export default function AssetLibrary() {
           )}
         </div>
 
-        <input
-          type="file"
-          id="asset-upload-input"
-          ref={fileInputRef}
-          onChange={handleUpload}
-          className="hidden"
-          accept="image/*,video/*"
-          multiple
-        />
       </div>
+
+      <input
+        type="file"
+        id="asset-upload-input"
+        ref={fileInputRef}
+        onChange={handleUpload}
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: '0',
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          white-space: 'nowrap',
+          borderWidth: '0',
+          opacity: '0',
+          pointerEvents: 'none',
+          zIndex: -1
+        }}
+        accept="image/*,video/*"
+        multiple
+      />
 
       <div className="flex flex-wrap items-center gap-4 py-2">
         <div className="relative flex-1 min-w-[300px]">
@@ -743,15 +774,15 @@ export default function AssetLibrary() {
       <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-6 space-y-6">
         {/* Special Add Box */}
         <div className="break-inside-avoid">
-          <label
-            htmlFor="asset-upload-input"
+          <button
+            onClick={triggerUpload}
             className="w-full aspect-[3/4] border-2 border-dashed border-slate-200 rounded-[28px] flex flex-col items-center justify-center text-slate-400 hover:border-[#1A5336] hover:text-[#1A5336] hover:bg-green-50/30 transition-all group cursor-pointer"
           >
-            <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mb-4 group-hover:bg-[#1A5336]/10 group-hover:scale-110 transition-all">
+            <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mb-4 group-hover:bg-[#1A5336]/10 group-hover:scale-110 transition-all pointer-events-none">
               <Plus size={32} />
             </div>
-            <span className="text-sm font-bold">新增媒體</span>
-          </label>
+            <span className="text-sm font-bold pointer-events-none">新增媒體</span>
+          </button>
         </div>
 
         {filtered.map((asset) => {

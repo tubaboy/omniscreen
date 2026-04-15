@@ -571,7 +571,7 @@ export default function AssetLibrary() {
           margin: '-1px',
           overflow: 'hidden',
           clip: 'rect(0, 0, 0, 0)',
-          white-space: 'nowrap',
+          whiteSpace: 'nowrap',
           borderWidth: '0',
           opacity: '0',
           pointerEvents: 'none',

@@ -333,91 +333,97 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
 
       {/* ─── Middle Section: Premium Weather Card ─── */}
       <div className="relative z-10 flex justify-center px-12 mb-8">
-        <div className="glass rounded-[48px] p-8 flex items-stretch gap-12 max-w-6xl w-full">
+        <div className="glass rounded-[48px] p-8 flex flex-col gap-6 max-w-6xl w-full shadow-2xl">
           
-          {/* Column 1: Current Main */}
-          <div className="flex flex-col justify-between min-w-[320px]">
-            <div className="flex items-center gap-2 mb-4 opacity-90">
-              <MapPin size={18} className="text-[#ec5b13]" />
-              <span className="text-2xl font-bold tracking-tight">{city}</span>
-            </div>
-            
-            <div className="flex items-center gap-8 py-2">
-              {currentWmo && <currentWmo.Icon size={100} strokeWidth={1.5} className="text-white drop-shadow-md" />}
-              <div className="flex flex-col">
-                <div className="flex items-start">
-                   <span className="text-8xl font-black tracking-tighter">{weather?.current.temp || '--'}</span>
-                   <span className="text-4xl mt-3 ml-1">°C</span>
+          <div className="flex items-stretch gap-12">
+            {/* Column 1: Current Main */}
+            <div className="flex flex-col justify-between min-w-[320px]">
+              <div className="flex items-center gap-2 mb-4 opacity-90">
+                <MapPin size={18} className="text-[#ec5b13]" />
+                <span className="text-2xl font-bold tracking-tight">{city}</span>
+              </div>
+              
+              <div className="flex items-center gap-8 py-2">
+                {currentWmo && <currentWmo.Icon size={100} strokeWidth={1.5} className="text-white drop-shadow-md" />}
+                <div className="flex flex-col">
+                  <div className="flex items-start">
+                    <span className="text-8xl font-black tracking-tighter">{weather?.current.temp || '--'}</span>
+                    <span className="text-4xl mt-3 ml-1">°C</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 opacity-80 font-medium">
+                    <span className="text-lg">體感溫度: {weather?.current.feelsLike}°C</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 mt-1 opacity-80 font-medium">
-                  <span className="text-lg">體感溫度: {weather?.current.feelsLike}°C</span>
+              </div>
+              
+              <div className="mt-4 text-2xl font-medium tracking-wide text-white/90">
+                {currentWmo?.label || '讀取中...'}
+              </div>
+            </div>
+
+            <div className="w-px bg-white/10 my-4" />
+
+            {/* Column 2: Details */}
+            <div className="flex flex-col justify-center gap-8 py-2 min-w-[140px]">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                  <Droplets size={24} className="text-sky-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-3xl font-bold">{weather?.current.humidity || '--'}<span className="text-lg ml-1 opacity-60">%</span></span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                  <Wind size={24} className="text-emerald-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-3xl font-bold">{weather?.current.windSpeed || '--'}<span className="text-lg ml-1 opacity-60">m/s</span></span>
                 </div>
               </div>
             </div>
-            
-            <div className="mt-4 text-2xl font-medium tracking-wide text-white/90">
-              {currentWmo?.label || '讀取中...'}
-            </div>
-          </div>
 
-          <div className="w-px bg-white/10 my-4" />
+            <div className="w-px bg-white/10 my-4" />
 
-          {/* Column 2: Details */}
-          <div className="flex flex-col justify-center gap-8 py-2 min-w-[140px]">
-            <div className="flex items-center gap-4">
-               <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                 <Droplets size={24} className="text-sky-400" />
-               </div>
-               <div className="flex flex-col">
-                 <span className="text-3xl font-bold">{weather?.current.humidity || '--'}<span className="text-lg ml-1 opacity-60">%</span></span>
-               </div>
-            </div>
-            <div className="flex items-center gap-4">
-               <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                 <Wind size={24} className="text-emerald-400" />
-               </div>
-               <div className="flex flex-col">
-                 <span className="text-3xl font-bold">{weather?.current.windSpeed || '--'}<span className="text-lg ml-1 opacity-60">m/s</span></span>
-               </div>
-            </div>
-          </div>
-
-          <div className="w-px bg-white/10 my-4" />
-
-          {/* Column 3: Forecast */}
-          <div className="flex-1 flex items-center justify-around gap-4 px-4">
-            {weather?.daily.map((day, idx) => {
-              const DayWmo = WMO_MAPPING[day.weatherCode] ?? { label: '未知', Icon: Cloud };
-              return (
-                <div key={idx} className="flex flex-col items-center gap-4 group hover:scale-105 transition-transform duration-300">
-                  <span className="text-xl font-bold opacity-80">{getWeekday(day.date)}</span>
-                  <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-inner">
-                    <DayWmo.Icon size={44} strokeWidth={1.5} />
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="flex gap-2 font-bold text-xl">
-                      <span className="text-white">{day.tempMax}°</span>
-                      <span className="text-white/40">{day.tempMin}°</span>
+            {/* Column 3: Forecast */}
+            <div className="flex-1 flex items-center justify-around gap-4 px-4">
+              {weather?.daily.map((day, idx) => {
+                const DayWmo = WMO_MAPPING[day.weatherCode] ?? { label: '未知', Icon: Cloud };
+                return (
+                  <div key={idx} className="flex flex-col items-center gap-4 group hover:scale-105 transition-transform duration-300">
+                    <span className="text-xl font-bold opacity-80">{getWeekday(day.date)}</span>
+                    <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-inner">
+                      <DayWmo.Icon size={44} strokeWidth={1.5} />
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-sky-500/10 rounded-full border border-sky-500/20">
-                      <Droplets size={12} className="text-sky-400" />
-                      <span className="text-[11px] font-black text-sky-300">{day.pop}%</span>
+                    <div className="flex flex-col items-center">
+                      <div className="flex gap-2 font-bold text-xl">
+                        <span className="text-white">{day.tempMax}°</span>
+                        <span className="text-white/40">{day.tempMin}°</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-sky-500/10 rounded-full border border-sky-500/20">
+                        <Droplets size={12} className="text-sky-400" />
+                        <span className="text-[11px] font-black text-sky-300">{day.pop}%</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Footer Info - Now INSIDE the glass card */}
+          <div className="mt-2 pt-6 border-t border-white/10 flex justify-between items-center opacity-40 text-xs font-bold tracking-widest uppercase">
+            <div className="flex items-center gap-2">
+              <RefreshCw size={12} />
+              更新時間: {weather?.current.updateTime || '--:--'}
+            </div>
+            <div className="flex items-center gap-2">
+               <span>Open-Meteo Weather Data</span>
+               <div className="w-1 h-1 bg-white/40 rounded-full" />
+               <span>Taipei Region</span>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Footer Info */}
-      <div className="relative z-10 px-16 flex justify-between items-center opacity-40 text-xs font-bold tracking-widest mb-2 uppercase">
-        <div className="flex items-center gap-2">
-          <RefreshCw size={12} />
-          更新時間: {weather?.current.updateTime || '--:--'}
-        </div>
-        <div>Open-Meteo Weather Data</div>
       </div>
 
       {/* ─── Bottom Section: News Ticker ─── */}

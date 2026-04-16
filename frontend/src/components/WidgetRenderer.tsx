@@ -8,8 +8,6 @@ import {
   CloudFog, 
   CloudDrizzle, 
   CloudRain, 
-  CloudLowerRain, 
-  CloudRainWind, 
   CloudSnow, 
   CloudLightning,
   Droplets,
@@ -17,7 +15,8 @@ import {
   Thermometer,
   CalendarDays,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  Megaphone
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────

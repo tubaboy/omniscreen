@@ -194,7 +194,7 @@ export default function AssetLibrary() {
     textColor: '#ffffff',
     contentType: 'manual',
     newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-    marqueeSpeed: 40,
+    marqueeSpeed: 10,
   });
 
   // Image Cropper State
@@ -272,7 +272,7 @@ export default function AssetLibrary() {
       textColor: '#ffffff',
       contentType: 'manual',
       newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-      marqueeSpeed: 40,
+      marqueeSpeed: 10,
     });
     setShowWidgetModal(true);
   };
@@ -303,7 +303,7 @@ export default function AssetLibrary() {
       textColor: config.textColor ?? '#ffffff',
       contentType: config.contentType ?? 'manual',
       newsUrl: config.newsUrl ?? 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-      marqueeSpeed: config.marqueeSpeed ?? 40,
+      marqueeSpeed: config.marqueeSpeed ?? 10,
     });
     setShowWidgetModal(true);
   };
@@ -1410,24 +1410,24 @@ export default function AssetLibrary() {
 
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <label className="font-bold text-slate-700 text-sm">滾動速度</label>
+                        <label className="font-bold text-slate-700 text-sm">新聞停留時間</label>
                         <span className="text-[10px] font-black bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500">
-                          {widgetForm.marqueeSpeed}s {widgetForm.marqueeSpeed <= 25 ? '(快)' : widgetForm.marqueeSpeed >= 120 ? '(極慢)' : widgetForm.marqueeSpeed >= 60 ? '(慢)' : ''}
+                          建議值: 10秒
                         </span>
                       </div>
-                      <input 
-                        type="range" 
-                        min="15" 
-                        max="180" 
-                        step="1"
-                        value={widgetForm.marqueeSpeed}
-                        onChange={e => setWidgetForm(f => ({ ...f, marqueeSpeed: parseInt(e.target.value) }))}
-                        className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-violet-600"
-                      />
-                      <div className="flex justify-between text-[8px] font-black text-slate-300 uppercase tracking-widest">
-                        <span>快</span>
-                        <span>慢</span>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[5, 10, 15, 20].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setWidgetForm(f => ({ ...f, marqueeSpeed: s }))}
+                            className={`py-2 rounded-xl text-xs font-black transition-all border ${widgetForm.marqueeSpeed === s ? 'bg-violet-600 border-violet-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-violet-400'}`}
+                          >
+                            {s}秒
+                          </button>
+                        ))}
                       </div>
+                      <p className="text-[10px] text-slate-400 font-bold text-center">每則內容顯示的秒數</p>
                     </div>
                   </div>
                 </div>

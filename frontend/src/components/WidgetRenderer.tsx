@@ -108,17 +108,17 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     textColor = '#ffffff',
     contentType = 'manual',
     newsUrl = 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-    marqueeSpeed = 40,
+    marqueeSpeed = 10,
   } = config;
 
-  const currentSpeed = Number(marqueeSpeed) || 40;
+  const stayTime = Number(marqueeSpeed) || 10;
 
   // States
   const [now, setNow] = useState(new Date());
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [newsContent, setNewsContent] = useState<string>('');
+  const [newsItems, setNewsItems] = useState<string[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
-  const [dynamicDuration, setDynamicDuration] = useState(currentSpeed);
+  const [currentIndex, setCurrentIndex] = useState(0);
   
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -180,22 +180,21 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
         const data = await res.json();
         if (data.status === 'ok' && data.items) {
           // Decode simple HTML entities and join titles
-          const titles = data.items.map((item: any) => {
+          const items = data.items.map((item: any) => {
             let t = item.title || '';
-            // Simple mapping for common RSS HTML entities
             return t.replace(/&quot;/g, '"')
                     .replace(/&#39;/g, "'")
                     .replace(/&amp;/g, "&")
                     .replace(/&lt;/g, "<")
                     .replace(/&gt;/g, ">")
                     .split(' - ')[0];
-          }).join(' ｜ ');
-          setNewsContent(titles);
+          });
+          setNewsItems(items);
         } else {
-          setNewsContent('暫時無法獲取新聞資訊，請稍後再試。');
+          setNewsItems(['暫時無法獲取新聞資訊，請稍後再試。']);
         }
       } catch (e) {
-        setNewsContent('新聞讀取服務異常');
+        setNewsItems(['新聞讀取服務異常']);
       } finally {
         setLoadingNews(false);
       }
@@ -205,36 +204,24 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     return () => clearInterval(t);
   }, [contentType, newsUrl]);
 
-  const marqueePrefix = (contentType === 'news' && title && title !== '即時公告' && title !== '焦點公告') ? `${title}：` : '';
-  const displayContent = contentType === 'news' 
-    ? (newsContent || (loadingNews ? '新聞讀取中...' : '')) 
-    : (content || '歡迎光臨，祝您有美好的一天！');
+  // Content Items Logic
+  const contentItems = contentType === 'news' 
+    ? (newsItems.length > 0 ? newsItems : (loadingNews ? ['新聞讀取中...'] : []))
+    : [(content || '歡迎光臨，祝您有美好的一天！')];
 
-  const fullDisplayText = marqueePrefix + displayContent;
-
-  // Dynamic Marquee
+  // Auto-cycle through items
   useEffect(() => {
-    if (!scrolling || !contentRef.current) {
-      setDynamicDuration(currentSpeed);
+    if (!scrolling || contentItems.length <= 1) {
+      setCurrentIndex(0);
       return;
     }
-    const calculateDuration = () => {
-      const contentWidth = contentRef.current?.offsetWidth || 0;
-      if (contentWidth > 0) {
-        // Screen-relative Calibration: 
-        // currentSpeed (15s-180s) represents the time it takes for text to cross ONE screen width (100vw).
-        // The animation scrolls 50% of contentWidth (since content is doubled for the loop).
-        const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-        const loopDistance = contentWidth / 2;
-        const velocity = screenWidth / currentSpeed; // Physical speed: pixels per second
-        
-        const calculated = loopDistance / velocity;
-        setDynamicDuration(Math.max(calculated, 1)); // Realistic floor
-      }
-    };
-    calculateDuration();
-    // Re-run if content or speed changes
-  }, [scrolling, fullDisplayText, currentSpeed]);
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % contentItems.length);
+    }, stayTime * 1000);
+    return () => clearInterval(timer);
+  }, [scrolling, contentItems.length, stayTime]);
+
+  const marqueePrefix = (contentType === 'news' && title && title !== '即時公告' && title !== '焦點公告') ? `${title}：` : '';
 
   // UI Formatting
   const timeOptions: Intl.DateTimeFormatOptions = { 
@@ -287,14 +274,14 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
           border: 1px solid rgba(255, 255, 255, 0.12);
           box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
         }
-        @keyframes marqueeScroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+        @keyframes marqueeScrollVertical {
+          0% { transform: translateY(100%); opacity: 0; }
+          5% { transform: translateY(0); opacity: 1; }
+          95% { transform: translateY(0); opacity: 1; }
+          100% { transform: translateY(-100%); opacity: 0; }
         }
-        .animate-marquee-text {
-          display: flex;
-          width: max-content;
-          animation: marqueeScroll linear infinite;
+        .animate-news-slide {
+          animation: marqueeScrollVertical linear infinite;
         }
         @keyframes blink {
           0%, 100% { opacity: 1; }
@@ -437,23 +424,25 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
             </span>
           </div>
           
-          <div className="overflow-hidden flex-1 relative h-full flex items-center pl-12">
-            {fullDisplayText && (
-              <div 
-                key={fullDisplayText}
-                className={scrolling ? "animate-marquee-text" : "flex items-center shrink-0"}
-                style={scrolling ? { animationDuration: `${dynamicDuration}s` } : {}}
-              >
-                {[1, (scrolling ? 2 : 1)].map((i) => (
-                  <div key={i} ref={i === 1 ? contentRef : null} className="flex items-center shrink-0 pr-[20vw]">
-                    <span className="text-4xl font-light tracking-wide whitespace-nowrap inline-flex items-center">
-                      {fullDisplayText}
-                      {scrolling && <span className="mx-20 text-[#ec5b13] text-2xl">●</span>}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="flex-1 relative h-full overflow-hidden ml-12">
+            <div className="absolute inset-0 flex items-center">
+              {contentItems.map((item, idx) => (
+                <div 
+                  key={`${idx}-${item}`}
+                  className={`absolute w-full flex items-center transition-all duration-700 ${
+                    idx === currentIndex 
+                      ? 'translate-y-0 opacity-100' 
+                      : idx === (currentIndex - 1 + contentItems.length) % contentItems.length
+                      ? '-translate-y-full opacity-0'
+                      : 'translate-y-full opacity-0'
+                  }`}
+                >
+                  <span className="text-4xl font-light tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
+                    {marqueePrefix}{item}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

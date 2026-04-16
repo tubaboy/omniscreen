@@ -1,6 +1,24 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { 
+  Sun, 
+  CloudSun, 
+  Cloud, 
+  CloudFog, 
+  CloudDrizzle, 
+  CloudRain, 
+  CloudLowerRain, 
+  CloudRainWind, 
+  CloudSnow, 
+  CloudLightning,
+  Droplets,
+  Wind,
+  Thermometer,
+  CalendarDays,
+  MapPin,
+  RefreshCw
+} from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -33,35 +51,46 @@ export interface WidgetConfig {
 
 // ─── Weather Helpers ──────────────────────────────────────────────────────
 
-const WMO_CODES: Record<number, { label: string; icon: string }> = {
-  0: { label: '晴天', icon: 'wb_sunny' },
-  1: { label: '大致晴天', icon: 'partly_cloudy_day' },
-  2: { label: '局部多雲', icon: 'cloud' },
-  3: { label: '陰天', icon: 'cloud' },
-  45: { label: '霧', icon: 'foggy' },
-  48: { label: '淞霧', icon: 'foggy' },
-  51: { label: '毛毛雨', icon: 'rainy' },
-  53: { label: '毛毛雨', icon: 'rainy' },
-  55: { label: '毛毛雨', icon: 'rainy' },
-  61: { label: '小雨', icon: 'rainy_light' },
-  63: { label: '中雨', icon: 'rainy_heavy' },
-  65: { label: '大雨', icon: 'rainy_heavy' },
-  71: { label: '小雪', icon: 'ac_unit' },
-  73: { label: '中雪', icon: 'ac_unit' },
-  80: { label: '陣雨', icon: 'rainy' },
-  85: { label: '陣雪', icon: 'ac_unit' },
-  95: { label: '雷雨', icon: 'thunderstorm' },
-  99: { label: '強雷雨', icon: 'thunderstorm' },
+const WMO_MAPPING: Record<number, { label: string; Icon: any }> = {
+  0: { label: '晴朗', Icon: Sun },
+  1: { label: '大致晴朗', Icon: CloudSun },
+  2: { label: '局部多雲', Icon: CloudSun },
+  3: { label: '陰天', Icon: Cloud },
+  45: { label: '有霧', Icon: CloudFog },
+  48: { label: '淞霧', Icon: CloudFog },
+  51: { label: '輕微毛毛雨', Icon: CloudDrizzle },
+  53: { label: '毛毛雨', Icon: CloudDrizzle },
+  55: { label: '強烈毛毛雨', Icon: CloudDrizzle },
+  61: { label: '小雨', Icon: CloudRain },
+  63: { label: '中雨', Icon: CloudRain },
+  65: { label: '大雨', Icon: CloudRain },
+  71: { label: '小雪', Icon: CloudSnow },
+  73: { label: '中雪', Icon: CloudSnow },
+  75: { label: '大雪', Icon: CloudSnow },
+  80: { label: '陣雨', Icon: CloudDrizzle },
+  81: { label: '中度陣雨', Icon: CloudRain },
+  82: { label: '強烈陣雨', Icon: CloudRain },
+  95: { label: '雷雨', Icon: CloudLightning },
+  96: { label: '雷雨伴有冰雹', Icon: CloudLightning },
+  99: { label: '強雷雨伴有冰雹', Icon: CloudLightning },
 };
 
 interface WeatherData {
-  temp: number;
-  feelsLike: number;
-  humidity: number;
-  windSpeed: number;
-  weatherCode: number;
-  tempMax: number;
-  tempMin: number;
+  current: {
+    temp: number;
+    feelsLike: number;
+    humidity: number;
+    windSpeed: number;
+    weatherCode: number;
+    updateTime: string;
+  };
+  daily: Array<{
+    date: string;
+    weatherCode: number;
+    tempMax: number;
+    tempMin: number;
+    pop: number; // Probability of precipitation
+  }>;
 }
 
 // ─── Dashboard Widget (Elegant Signage Style) ──────────────────────────────
@@ -104,17 +133,26 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FTaipei&forecast_days=1`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTaipei&forecast_days=4`;
         const res = await fetch(url);
         const data = await res.json();
+        
         setWeather({
-          temp: Math.round(data.current.temperature_2m),
-          feelsLike: Math.round(data.current.apparent_temperature),
-          humidity: data.current.relative_humidity_2m,
-          windSpeed: Math.round(data.current.wind_speed_10m),
-          weatherCode: data.current.weather_code,
-          tempMax: Math.round(data.daily.temperature_2m_max[0]),
-          tempMin: Math.round(data.daily.temperature_2m_min[0]),
+          current: {
+            temp: Math.round(data.current.temperature_2m),
+            feelsLike: Math.round(data.current.apparent_temperature),
+            humidity: data.current.relative_humidity_2m,
+            windSpeed: Math.round(data.current.wind_speed_10m),
+            weatherCode: data.current.weather_code,
+            updateTime: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+          },
+          daily: data.daily.time.slice(1).map((time: string, i: number) => ({
+            date: time,
+            weatherCode: data.daily.weather_code[i+1],
+            tempMax: Math.round(data.daily.temperature_2m_max[i+1]),
+            tempMin: Math.round(data.daily.temperature_2m_min[i+1]),
+            pop: data.daily.precipitation_probability_max[i+1],
+          }))
         });
       } catch (e) {
         console.error('Weather error', e);
@@ -225,22 +263,30 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
   };
 
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  const wmo = weather ? (WMO_CODES[weather.weatherCode] ?? { label: '未知', icon: 'thermostat' }) : null;
+  // Helpers
+  const getWeekday = (dateStr: string) => {
+    const days = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+    const daysTW = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    const d = new Date(dateStr);
+    return daysTW[d.getDay()];
+  };
+
+  const currentWmo = weather ? (WMO_MAPPING[weather.current.weatherCode] ?? { label: '讀取中', Icon: Cloud }) : null;
 
   return (
     <div className="w-full h-full relative overflow-hidden flex flex-col justify-between font-sans text-white bg-black">
       {/* ─── External Assets ─── */}
       <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
-      <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       
       <style>{`
         .font-serif { font-family: 'Playfair Display', serif; }
         .font-display { font-family: 'Public Sans', sans-serif; }
         .glass {
-          background: rgba(255, 255, 255, 0.08);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.15);
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(32px) saturate(180%);
+          -webkit-backdrop-filter: blur(32px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
         }
         @keyframes marqueeScroll {
           0% { transform: translateX(0); }
@@ -265,77 +311,114 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
         <div 
           className="w-full h-full bg-cover bg-center transition-opacity duration-1000"
           style={{ 
-            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)), url('${config.bgImageUrl || '/backgrounds/taipei-neihu.png'}')`,
+            backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.85)), url('${config.bgImageUrl || '/backgrounds/taipei-neihu.png'}')`,
           }}
         />
       </div>
 
       {/* ─── Top Section: Time and Date ─── */}
-      <div className="relative z-10 flex flex-col items-center pt-24 space-y-2">
-        <h1 className="font-serif text-[180px] leading-none tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-baseline">
+      <div className="relative z-10 flex flex-col items-center pt-20 space-y-1">
+        <h1 className="font-serif text-[160px] leading-none tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex items-baseline">
           {renderTimeWithBlinkingColons(timeMain)}
-          <span className="text-[60px] font-light opacity-80 uppercase tracking-[0.2em] ml-6">
+          <span className="text-[50px] font-light opacity-80 uppercase tracking-[0.2em] ml-6">
             {timePeriod}
           </span>
         </h1>
-        <div className="h-1 w-24 bg-[#ec5b13] my-6 rounded-full shadow-[0_0_15px_rgba(236,91,19,0.5)]"></div>
+        <div className="h-1 w-20 bg-[#ec5b13] my-4 rounded-full shadow-[0_0_20px_rgba(236,91,19,0.6)]"></div>
         {showDate && (
-          <p className="font-serif text-4xl italic tracking-wide text-white/90">
+          <p className="font-serif text-3xl italic tracking-widest text-white/90">
             {dateStr}
           </p>
         )}
       </div>
 
-      {/* ─── Middle Section: Weather Card ─── */}
-      <div className="relative z-10 flex justify-center px-12 mb-12">
-        <div className="glass rounded-[40px] p-10 flex items-center gap-16 max-w-4xl w-full shadow-2xl">
-          <div className="flex items-center gap-10">
-            {wmo && (
-              <span className="material-symbols-outlined text-[100px] text-[#ec5b13]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                {wmo.icon}
-              </span>
-            )}
-            <div>
-              {weather && (
-                <p className="text-8xl font-black tracking-tighter tabular-nums leading-none">
-                  {weather.temp}°<span className="text-4xl font-light opacity-60 ml-1">C</span>
-                </p>
-              )}
-              <p className="text-2xl font-bold uppercase tracking-[0.3em] text-white/70 mt-2">
-                {wmo?.label || '讀取中...'}
-              </p>
-            </div>
-          </div>
+      {/* ─── Middle Section: Premium Weather Card ─── */}
+      <div className="relative z-10 flex justify-center px-12 mb-8">
+        <div className="glass rounded-[48px] p-8 flex items-stretch gap-12 max-w-6xl w-full">
           
-          <div className="h-20 w-px bg-white/20"></div>
-          
-          <div className="flex flex-col gap-4 flex-1">
-            <div className="flex items-center gap-4">
-              <span className="material-symbols-outlined text-[#ec5b13] text-3xl">location_on</span>
-              <p className="text-3xl font-bold tracking-wider">{city}</p>
+          {/* Column 1: Current Main */}
+          <div className="flex flex-col justify-between min-w-[320px]">
+            <div className="flex items-center gap-2 mb-4 opacity-90">
+              <MapPin size={18} className="text-[#ec5b13]" />
+              <span className="text-2xl font-bold tracking-tight">{city}</span>
             </div>
             
-            {weather && (
-              <div className="flex gap-6">
-                <div className="bg-[#ec5b13]/20 rounded-2xl px-5 py-2 border border-[#ec5b13]/30 backdrop-blur-md">
-                  <p className="text-white text-sm uppercase tracking-widest font-black">
-                    High: {weather.tempMax}°
-                  </p>
+            <div className="flex items-center gap-8 py-2">
+              {currentWmo && <currentWmo.Icon size={100} strokeWidth={1.5} className="text-white drop-shadow-md" />}
+              <div className="flex flex-col">
+                <div className="flex items-start">
+                   <span className="text-8xl font-black tracking-tighter">{weather?.current.temp || '--'}</span>
+                   <span className="text-4xl mt-3 ml-1">°C</span>
                 </div>
-                <div className="bg-white/10 rounded-2xl px-5 py-2 border border-white/10 backdrop-blur-md">
-                  <p className="text-white text-sm uppercase tracking-widest font-black">
-                    Low: {weather.tempMin}°
-                  </p>
-                </div>
-                <div className="bg-white/5 rounded-2xl px-5 py-2 border border-white/5 text-white/60">
-                  <p className="text-xs uppercase tracking-widest font-bold">
-                    Humidity: {weather.humidity}%
-                  </p>
+                <div className="flex items-center gap-3 mt-1 opacity-80 font-medium">
+                  <span className="text-lg">體感溫度: {weather?.current.feelsLike}°C</span>
                 </div>
               </div>
-            )}
+            </div>
+            
+            <div className="mt-4 text-2xl font-medium tracking-wide text-white/90">
+              {currentWmo?.label || '讀取中...'}
+            </div>
+          </div>
+
+          <div className="w-px bg-white/10 my-4" />
+
+          {/* Column 2: Details */}
+          <div className="flex flex-col justify-center gap-8 py-2 min-w-[140px]">
+            <div className="flex items-center gap-4">
+               <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                 <Droplets size={24} className="text-sky-400" />
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-3xl font-bold">{weather?.current.humidity || '--'}<span className="text-lg ml-1 opacity-60">%</span></span>
+               </div>
+            </div>
+            <div className="flex items-center gap-4">
+               <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                 <Wind size={24} className="text-emerald-400" />
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-3xl font-bold">{weather?.current.windSpeed || '--'}<span className="text-lg ml-1 opacity-60">m/s</span></span>
+               </div>
+            </div>
+          </div>
+
+          <div className="w-px bg-white/10 my-4" />
+
+          {/* Column 3: Forecast */}
+          <div className="flex-1 flex items-center justify-around gap-4 px-4">
+            {weather?.daily.map((day, idx) => {
+              const DayWmo = WMO_MAPPING[day.weatherCode] ?? { label: '未知', Icon: Cloud };
+              return (
+                <div key={idx} className="flex flex-col items-center gap-4 group hover:scale-105 transition-transform duration-300">
+                  <span className="text-xl font-bold opacity-80">{getWeekday(day.date)}</span>
+                  <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-inner">
+                    <DayWmo.Icon size={44} strokeWidth={1.5} />
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="flex gap-2 font-bold text-xl">
+                      <span className="text-white">{day.tempMax}°</span>
+                      <span className="text-white/40">{day.tempMin}°</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-sky-500/10 rounded-full border border-sky-500/20">
+                      <Droplets size={12} className="text-sky-400" />
+                      <span className="text-[11px] font-black text-sky-300">{day.pop}%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      </div>
+
+      {/* Footer Info */}
+      <div className="relative z-10 px-16 flex justify-between items-center opacity-40 text-xs font-bold tracking-widest mb-2 uppercase">
+        <div className="flex items-center gap-2">
+          <RefreshCw size={12} />
+          更新時間: {weather?.current.updateTime || '--:--'}
+        </div>
+        <div>Open-Meteo Weather Data</div>
       </div>
 
       {/* ─── Bottom Section: News Ticker ─── */}
@@ -343,7 +426,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
         <div className="flex items-center px-12 h-[80px]">
           {/* Label using the Widget Title */}
           <div className="flex items-center gap-4 pr-12 border-r border-white/20 h-full">
-            <span className="material-symbols-outlined text-[#ec5b13] text-4xl">campaign</span>
+            <Megaphone size={32} className="text-[#ec5b13] animate-bounce" />
             <span className="text-white font-black uppercase tracking-[0.4em] text-xl whitespace-nowrap">
               {title}
             </span>

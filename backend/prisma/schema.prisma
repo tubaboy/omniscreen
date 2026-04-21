@@ -75,6 +75,7 @@ model Schedule {
   frameId    String?
   frame      Asset?         @relation("ScheduleFrame", fields: [frameId], references: [id])
   layoutConfig Json?
+  marqueeConfig Json?
   screen     Screen         @relation(fields: [screenId], references: [id], onDelete: Cascade)
 }
 
@@ -142,4 +143,5 @@ enum AssetType {
   WIDGET
   WEB
   YOUTUBE
+  MARQUEE
 }

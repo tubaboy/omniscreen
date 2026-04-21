@@ -63,13 +63,13 @@ async function playlistRoutes(fastify, opts) {
     });
 
     if (schedules.length === 0) {
-      return []; // No schedule currently active
+      return { items: [], marqueeItems: [] };
     }
 
     // 2. Priority Override: take only the highest priority schedule's items
     const winningSchedule = schedules[0];
 
-    return winningSchedule.items
+    const items = winningSchedule.items
       .filter(item => {
         const now = new Date();
         const { validFrom, validUntil } = item.asset;
@@ -83,15 +83,13 @@ async function playlistRoutes(fastify, opts) {
         let widgetConfig = null;
         if (isWidget) {
           try {
-            // Because fixAssetUrls uses a global regex on the string, 
-            // the nested bgImageUrl inside the JSON string is already fixed!
             widgetConfig = JSON.parse(fixedAsset.url);
           } catch (e) {
             fastify.log.error('Failed to parse widget config:', e);
           }
         }
         return {
-          id: item.id, // Use unique PlaylistItem id for React keys
+          id: item.id,
           assetId: fixedAsset.id,
           scheduleId: item.scheduleId,
           name: fixedAsset.name,
@@ -105,13 +103,41 @@ async function playlistRoutes(fastify, opts) {
           layoutConfig: winningSchedule.layoutConfig || null,
         };
       });
+
+    // 3. Resolve marquee items from marqueeConfig
+    let marqueeItems = [];
+    const mc = winningSchedule.marqueeConfig;
+    if (mc && mc.enabled && Array.isArray(mc.items) && mc.items.length > 0) {
+      const marqueeAssetIds = mc.items.map(m => m.assetId);
+      const marqueeAssets = await fastify.prisma.asset.findMany({
+        where: { id: { in: marqueeAssetIds }, type: 'MARQUEE' },
+      });
+      const assetMap = {};
+      marqueeAssets.forEach(a => { assetMap[a.id] = a; });
+
+      marqueeItems = mc.items
+        .filter(m => assetMap[m.assetId])
+        .map(m => {
+          const asset = fixAssetUrls(assetMap[m.assetId], request);
+          let config = {};
+          try { config = JSON.parse(asset.url); } catch (e) {}
+          return {
+            assetId: asset.id,
+            name: asset.name,
+            duration: m.duration || 60,
+            config,
+          };
+        });
+    }
+
+    return { items, marqueeItems, marqueeTransition: mc?.transitionEffect || 'FADE' };
   });
 
   // POST Schedule (Create - single screen)
   fastify.post('/schedules', async (request, reply) => {
     const {
       name, screenId, startTime, endTime, daysOfWeek,
-      priority, assetItems = [], startDate, endDate, isActive, transition, frameId, layoutConfig
+      priority, assetItems = [], startDate, endDate, isActive, transition, frameId, layoutConfig, marqueeConfig
     } = request.body;
 
     return fastify.prisma.schedule.create({
@@ -125,6 +151,7 @@ async function playlistRoutes(fastify, opts) {
         transition: transition || 'FADE',
         frameId: frameId || null,
         layoutConfig: layoutConfig || null,
+        marqueeConfig: marqueeConfig || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         isActive: isActive !== undefined ? isActive : true,
@@ -144,7 +171,7 @@ async function playlistRoutes(fastify, opts) {
   fastify.post('/schedules/batch', async (request, reply) => {
     const {
       name, screenIds, startTime, endTime, daysOfWeek,
-      priority, assetItems = [], startDate, endDate, isActive, transition, frameId, layoutConfig
+      priority, assetItems = [], startDate, endDate, isActive, transition, frameId, layoutConfig, marqueeConfig
     } = request.body;
 
     if (!Array.isArray(screenIds) || screenIds.length === 0) {
@@ -164,6 +191,7 @@ async function playlistRoutes(fastify, opts) {
             transition: transition || 'FADE',
             frameId: frameId || null,
             layoutConfig: layoutConfig || null,
+            marqueeConfig: marqueeConfig || null,
             startDate: startDate ? new Date(startDate) : null,
             endDate: endDate ? new Date(endDate) : null,
             isActive: isActive !== undefined ? isActive : true,
@@ -213,7 +241,7 @@ async function playlistRoutes(fastify, opts) {
     const { id } = request.params;
     const {
       name, screenId, startTime, endTime, daysOfWeek,
-      priority, assetItems, isActive, startDate, endDate, transition, frameId, layoutConfig
+      priority, assetItems, isActive, startDate, endDate, transition, frameId, layoutConfig, marqueeConfig
     } = request.body;
 
     return fastify.prisma.$transaction(async (tx) => {
@@ -233,7 +261,7 @@ async function playlistRoutes(fastify, opts) {
           transition,
           frameId: frameId !== undefined ? (frameId || null) : undefined,
           layoutConfig: layoutConfig !== undefined ? (layoutConfig || null) : undefined,
-          // undefined means "don't change"; null means "clear the date"
+          marqueeConfig: marqueeConfig !== undefined ? (marqueeConfig || null) : undefined,
           startDate: startDate !== undefined ? (startDate ? new Date(startDate) : null) : undefined,
           endDate: endDate !== undefined ? (endDate ? new Date(endDate) : null) : undefined,
           items: assetItems

@@ -30,7 +30,38 @@ interface WidgetFormState {
   contentType: 'manual' | 'news';
   newsUrl: string;
   marqueeSpeed: number;
+  showBottomTicker: boolean;
 }
+
+interface MarqueeFormState {
+  name: string;
+  title: string;
+  titleBgColor: string;
+  titleTextColor: string;
+  textColor: string;
+  contentType: 'manual' | 'news' | 'weather';
+  content: string;
+  newsUrl: string;
+  scrolling: boolean;
+  marqueeSpeed: number;
+  showClock: boolean;
+  clockBgColor: string;
+  clockTextColor: string;
+  bgImageUrl: string | null;
+  bgColor: string;
+  // Weather
+  city: string;
+  lat: string;
+  lon: string;
+}
+
+const RSS_PRESETS = [
+  { name: 'Google 新聞 (台灣)', url: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant' },
+  { name: 'BBC 中文網', url: 'https://www.bbc.com/zhongwen/trad/index.xml' },
+  { name: 'Yahoo 新聞', url: 'https://tw.news.yahoo.com/rss/all' },
+  { name: '自由時報', url: 'https://news.ltn.com.tw/rss/all.xml' },
+  { name: '中時電子報', url: 'https://www.chinatimes.com/rss/all.xml' },
+];
 
 // Helper for client-side image compression
 const compressImage = (file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<Blob | File> => {
@@ -195,6 +226,7 @@ export default function AssetLibrary() {
     contentType: 'manual',
     newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
     marqueeSpeed: 10,
+    showBottomTicker: true,
   });
 
   // Image Cropper State
@@ -237,6 +269,32 @@ export default function AssetLibrary() {
   const [showYoutubeModal, setShowYoutubeModal] = useState(false);
   const [editingYouTubeAsset, setEditingYouTubeAsset] = useState<any | null>(null);
 
+  // Marquee Modal State
+  const [showMarqueeModal, setShowMarqueeModal] = useState(false);
+  const [editingMarquee, setEditingMarquee] = useState<any | null>(null);
+  const [marqueeSaving, setMarqueeSaving] = useState(false);
+  const defaultMarqueeForm: MarqueeFormState = {
+    name: '跑馬燈素材',
+    title: '自家屋電子看板',
+    titleBgColor: '#0b486b',
+    titleTextColor: '#FFFFFF',
+    textColor: '#000000',
+    contentType: 'manual',
+    content: '歡迎光臨，祝您有美好的一天！✨',
+    newsUrl: RSS_PRESETS[0].url,
+    scrolling: true,
+    marqueeSpeed: 10,
+    showClock: true,
+    clockBgColor: '#ec6715',
+    clockTextColor: '#FFFFFF',
+    bgImageUrl: null,
+    bgColor: '#dee2ca',
+    city: '台北市',
+    lat: '25.04',
+    lon: '121.51',
+  };
+  const [marqueeForm, setMarqueeForm] = useState<MarqueeFormState>(defaultMarqueeForm);
+
   const openEditYouTubeModal = (asset: any) => {
     setEditingYouTubeAsset(asset);
     setShowYoutubeModal(true);
@@ -273,6 +331,7 @@ export default function AssetLibrary() {
       contentType: 'manual',
       newsUrl: 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
       marqueeSpeed: 10,
+      showBottomTicker: true,
     });
     setShowWidgetModal(true);
   };
@@ -304,6 +363,7 @@ export default function AssetLibrary() {
       contentType: config.contentType ?? 'manual',
       newsUrl: config.newsUrl ?? 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
       marqueeSpeed: config.marqueeSpeed ?? 10,
+      showBottomTicker: config.showBottomTicker ?? true,
     });
     setShowWidgetModal(true);
   };
@@ -331,6 +391,7 @@ export default function AssetLibrary() {
         contentType: widgetForm.contentType,
         newsUrl: widgetForm.newsUrl,
         marqueeSpeed: widgetForm.marqueeSpeed,
+        showBottomTicker: widgetForm.showBottomTicker,
       }
     };
 
@@ -397,6 +458,78 @@ export default function AssetLibrary() {
       alert('儲存失敗');
     } finally {
       setUrlSaving(false);
+    }
+  };
+
+  // Marquee Modal Handlers
+  const openMarqueeModal = () => {
+    setEditingMarquee(null);
+    setMarqueeForm({ ...defaultMarqueeForm, bgImageUrl: '/marquee/default-bg.png' });
+    setShowMarqueeModal(true);
+  };
+
+  const openEditMarqueeModal = (asset: any) => {
+    let config: any = {};
+    try { config = JSON.parse(asset.url); } catch (e) {}
+    setEditingMarquee(asset);
+    setMarqueeForm({
+      name: asset.name,
+      title: config.title ?? '',
+      titleBgColor: config.titleBgColor ?? '#0b486b',
+      titleTextColor: config.titleTextColor ?? '#FFFFFF',
+      textColor: config.textColor ?? '#000000',
+      contentType: config.contentType ?? 'manual',
+      content: config.content ?? '',
+      newsUrl: config.newsUrl ?? RSS_PRESETS[0].url,
+      scrolling: config.scrolling ?? true,
+      marqueeSpeed: config.marqueeSpeed ?? 10,
+      showClock: config.showClock ?? true,
+      clockBgColor: config.clockBgColor ?? '#ec6715',
+      clockTextColor: config.clockTextColor ?? '#FFFFFF',
+      bgImageUrl: config.bgImageUrl ?? null,
+      bgColor: config.bgColor ?? '#dee2ca',
+      city: config.city ?? '台北市',
+      lat: (config.lat ?? '25.04').toString(),
+      lon: (config.lon ?? '121.51').toString(),
+    });
+    setShowMarqueeModal(true);
+  };
+
+  const handleMarqueeSubmit = async () => {
+    if (!marqueeForm.name.trim()) return alert('請輸入名稱');
+    setMarqueeSaving(true);
+    const config = {
+      title: marqueeForm.title,
+      titleBgColor: marqueeForm.titleBgColor,
+      titleTextColor: marqueeForm.titleTextColor,
+      textColor: marqueeForm.textColor,
+      contentType: marqueeForm.contentType,
+      content: marqueeForm.content,
+      newsUrl: marqueeForm.newsUrl,
+      scrolling: marqueeForm.scrolling,
+      marqueeSpeed: marqueeForm.marqueeSpeed,
+      showClock: marqueeForm.showClock,
+      clockBgColor: marqueeForm.clockBgColor,
+      clockTextColor: marqueeForm.clockTextColor,
+      bgImageUrl: marqueeForm.bgImageUrl,
+      bgColor: marqueeForm.bgColor,
+      city: marqueeForm.city,
+      lat: marqueeForm.lat,
+      lon: marqueeForm.lon,
+    };
+    try {
+      if (editingMarquee) {
+        await api.patch(`/assets/${editingMarquee.id}`, { name: marqueeForm.name, config });
+      } else {
+        await api.post('/assets/marquee', { name: marqueeForm.name, config });
+      }
+      setShowMarqueeModal(false);
+      fetchAssets();
+    } catch (err) {
+      console.error(err);
+      alert('儲存失敗');
+    } finally {
+      setMarqueeSaving(false);
     }
   };
 
@@ -523,6 +656,15 @@ export default function AssetLibrary() {
               <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
               <Zap size={18} />
               建立動態看板
+            </button>
+            {/* Marquee Button */}
+            <button
+              onClick={openMarqueeModal}
+              className="group relative inline-flex items-center gap-2 px-6 py-4 bg-amber-600 text-white rounded-2xl font-bold shadow-xl shadow-amber-900/20 hover:bg-amber-700 transition-all overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+              <Megaphone size={18} />
+              建立跑馬燈
             </button>
             {/* URL Button */}
             <button
@@ -766,6 +908,11 @@ export default function AssetLibrary() {
                             <Youtube size={16}/>
                           </button>
                        ) : null}
+                       {asset.type === 'MARQUEE' ? (
+                          <button onClick={(e) => { e.stopPropagation(); openEditMarqueeModal(asset); }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="編輯跑馬燈">
+                            <Megaphone size={16}/>
+                          </button>
+                       ) : null}
                       <button onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="刪除">
                         <Trash2 size={16}/>
                       </button>
@@ -846,6 +993,54 @@ export default function AssetLibrary() {
                     )}
                   </div>
                   <p className="text-[10px] text-slate-400 font-bold mt-0.5">{asset.duration ?? 10}秒 顯示</p>
+                </div>
+              </div>
+            );
+          }
+
+          // ─── Marquee Card ───────────────────────────────────────
+          if (asset.type === 'MARQUEE') {
+            return (
+              <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-amber-500 bg-amber-900/40 ring-4 ring-amber-500/20' : 'bg-gradient-to-br from-amber-900 to-orange-900 border-amber-700 hover:shadow-amber-500/30'}`}>
+                
+                {/* Checkbox Overlay */}
+                <div className={`absolute top-4 left-4 z-40 transition-all ${selectedAssetIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div onClick={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} className={`w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer transition-all border-2 ${selectedAssetIds.has(asset.id) ? 'bg-amber-600 border-amber-600' : 'bg-black/40 backdrop-blur-md border-white/50 hover:border-white'}`}>
+                    {selectedAssetIds.has(asset.id) && <CheckSquare size={16} className="text-white" />}
+                  </div>
+                </div>
+
+                <div className="relative overflow-hidden aspect-video bg-black flex flex-col items-center justify-center gap-2 p-4 cursor-pointer">
+                  <div className="absolute inset-0 bg-gradient-to-r from-amber-600/40 via-orange-500/30 to-teal-600/40 opacity-80 blur-xl pointer-events-none" />
+                  <span style={{ fontSize: 40 }} className="relative z-10 drop-shadow-2xl">📢</span>
+                  <span className="text-white font-black text-sm relative z-10 tracking-widest">MARQUEE</span>
+                  <div className="absolute inset-0 bg-amber-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditMarqueeModal(asset); }}
+                        className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
+                      >
+                        <Edit3 size={14} /> 編輯
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }}
+                        className="bg-red-500/20 backdrop-blur-md text-red-200 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs"
+                      >
+                        刪除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-white/5 border-t border-white/10">
+                  <div className="flex justify-between items-start">
+                    <p className="text-xs font-bold text-white truncate pr-2">{asset.name}</p>
+                    {((asset as any).usageCount || 0) > 0 ? (
+                      <span className="text-[9px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold shrink-0">🔗 {((asset as any).usageCount || 0)}</span>
+                    ) : (
+                      <span className="text-[9px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">👻 閒置</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-amber-300/70 font-bold mt-0.5">跑馬燈素材</p>
                 </div>
               </div>
             );
@@ -1293,7 +1488,15 @@ export default function AssetLibrary() {
                <section className="space-y-4">
                  <h3 className="text-sm font-black text-slate-800 border-b pb-2 flex items-center justify-between">
                    <div className="flex items-center gap-2"><Megaphone size={16}/> 底部跑馬燈公告</div>
-                   <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                   <div className="flex items-center gap-3">
+                     <button
+                       type="button"
+                       onClick={() => setWidgetForm(f => ({ ...f, showBottomTicker: !f.showBottomTicker }))}
+                       className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${widgetForm.showBottomTicker ? 'bg-violet-600 text-white' : 'bg-red-100 text-red-500'}`}
+                     >
+                       {widgetForm.showBottomTicker ? '✅ 顯示' : '❌ 隱藏'}
+                     </button>
+                     <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
                      <button 
                        onClick={() => setWidgetForm(f => ({ ...f, contentType: 'manual' }))}
                        className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${widgetForm.contentType === 'manual' ? 'bg-white shadow text-violet-600' : 'text-slate-500'}`}
@@ -1302,6 +1505,7 @@ export default function AssetLibrary() {
                        onClick={() => setWidgetForm(f => ({ ...f, contentType: 'news' }))}
                        className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${widgetForm.contentType === 'news' ? 'bg-white shadow text-violet-600' : 'text-slate-500'}`}
                      >即時新聞</button>
+                    </div>
                    </div>
                  </h3>
                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1582,6 +1786,313 @@ export default function AssetLibrary() {
                 {previewAsset.orientation && (
                   <span className="px-2 py-0.5 bg-white/10 rounded text-[9px] font-black text-white/50 uppercase tracking-widest border border-white/5">{previewAsset.orientation}</span>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ Marquee Modal ============ */}
+      {showMarqueeModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMarqueeModal(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-amber-600 to-orange-600 text-white p-6 rounded-t-3xl z-10">
+              <h2 className="text-xl font-black">{editingMarquee ? '編輯跑馬燈' : '建立跑馬燈素材'}</h2>
+              <p className="text-amber-100 text-sm mt-1">設定跑馬燈的樣式與內容</p>
+            </div>
+            <div className="p-6 space-y-5">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">素材名稱</label>
+                <input
+                  type="text"
+                  value={marqueeForm.name}
+                  onChange={(e) => setMarqueeForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* 顏色配置 (三段式) */}
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-6">
+                <label className="block text-sm font-black text-slate-700 uppercase tracking-widest">🎨 視覺色彩配置</label>
+                
+                <div className="grid grid-cols-3 gap-6">
+                  {/* Title Block */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-[#0b486b] rounded-full" />
+                      <label className="text-[11px] font-black text-slate-500 uppercase">左側標題區</label>
+                    </div>
+                    <div className="space-y-2">
+                       <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
+                         <span className="text-[10px] font-bold text-slate-400">背景</span>
+                         <input type="color" value={marqueeForm.titleBgColor} onChange={(e) => setMarqueeForm(prev => ({ ...prev, titleBgColor: e.target.value }))} className="w-8 h-8 rounded-lg cursor-pointer border-none" />
+                       </div>
+                       <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
+                         <span className="text-[10px] font-bold text-slate-400">文字</span>
+                         <input type="color" value={marqueeForm.titleTextColor || '#FFFFFF'} onChange={(e) => setMarqueeForm(prev => ({ ...prev, titleTextColor: e.target.value }))} className="w-8 h-8 rounded-lg cursor-pointer border-none" />
+                       </div>
+                    </div>
+                  </div>
+
+                  {/* Body Block */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-slate-300 rounded-full" />
+                      <label className="text-[11px] font-black text-slate-500 uppercase">中段內容區</label>
+                    </div>
+                    <div className="space-y-2">
+                       <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
+                         <span className="text-[10px] font-bold text-slate-400">背景</span>
+                         <input type="color" value={marqueeForm.bgColor} onChange={(e) => setMarqueeForm(prev => ({ ...prev, bgColor: e.target.value }))} className="w-8 h-8 rounded-lg cursor-pointer border-none" />
+                       </div>
+                       <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
+                         <span className="text-[10px] font-bold text-slate-400">文字</span>
+                         <input type="color" value={marqueeForm.textColor || '#000000'} onChange={(e) => setMarqueeForm(prev => ({ ...prev, textColor: e.target.value }))} className="w-8 h-8 rounded-lg cursor-pointer border-none" />
+                       </div>
+                    </div>
+                  </div>
+
+                  {/* Clock Block */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-[#ec6715] rounded-full" />
+                      <label className="text-[11px] font-black text-slate-500 uppercase">右側時鐘區</label>
+                    </div>
+                    <div className="space-y-2">
+                       <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
+                         <span className="text-[10px] font-bold text-slate-400">背景</span>
+                         <input type="color" value={marqueeForm.clockBgColor} onChange={(e) => setMarqueeForm(prev => ({ ...prev, clockBgColor: e.target.value }))} className="w-8 h-8 rounded-lg cursor-pointer border-none" />
+                       </div>
+                       <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
+                         <span className="text-[10px] font-bold text-slate-400">文字</span>
+                         <input type="color" value={marqueeForm.clockTextColor || '#FFFFFF'} onChange={(e) => setMarqueeForm(prev => ({ ...prev, clockTextColor: e.target.value }))} className="w-8 h-8 rounded-lg cursor-pointer border-none" />
+                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-slate-400 font-black uppercase">🖼️ 進階底圖 (選用)</label>
+                    {marqueeForm.bgImageUrl && (
+                      <button onClick={() => setMarqueeForm(prev => ({ ...prev, bgImageUrl: null }))} className="text-red-500 hover:text-red-700 text-[10px] font-black uppercase">清除圖片</button>
+                    )}
+                  </div>
+                  <div 
+                    className="mt-2 h-12 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:bg-slate-100 transition-all overflow-hidden"
+                    style={{
+                      backgroundImage: marqueeForm.bgImageUrl ? `url(${marqueeForm.bgImageUrl})` : undefined,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = async (e: any) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const compressed = await compressImage(file, 1920, 0.85);
+                        const formData = new FormData();
+                        formData.append('file', compressed, file.name);
+                        try {
+                          const res = await api.post('/assets/upload-raw', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                          setMarqueeForm(prev => ({ ...prev, bgImageUrl: res.data.url }));
+                        } catch { alert('上傳失敗'); }
+                      };
+                      input.click();
+                    }}
+                  >
+                    {!marqueeForm.bgImageUrl && <span className="text-slate-400 text-[10px] font-black">點擊上傳自訂底圖</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Title Text */}
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">標題文字</label>
+                  <input
+                    type="text"
+                    value={marqueeForm.title}
+                    onChange={(e) => setMarqueeForm(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="自家屋電子看板"
+                  />
+                </div>
+              </div>
+
+              {/* Content Source */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">內容來源</label>
+                <div className="flex gap-2 mb-3">
+                  {(['manual', 'news', 'weather'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setMarqueeForm(prev => ({ ...prev, contentType: t }))}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${marqueeForm.contentType === t ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      {t === 'manual' ? '≰️ 自訂文字' : t === 'news' ? '📰 RSS 新聞' : '🌤️ 天氣摘要'}
+                    </button>
+                  ))}
+                </div>
+
+                {marqueeForm.contentType === 'manual' && (
+                  <textarea
+                    value={marqueeForm.content}
+                    onChange={(e) => setMarqueeForm(prev => ({ ...prev, content: e.target.value }))}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="輸入跑馬燈文字，每行為一則訊息..."
+                  />
+                )}
+                {marqueeForm.contentType === 'news' && (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                       {RSS_PRESETS.map(preset => (
+                         <button
+                           key={preset.url}
+                           onClick={() => setMarqueeForm(prev => ({ ...prev, newsUrl: preset.url }))}
+                           className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${marqueeForm.newsUrl === preset.url ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400'}`}
+                         >
+                           {preset.name}
+                         </button>
+                       ))}
+                    </div>
+                    <div className="relative">
+                       <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">或自行輸入 RSS 網址：</label>
+                       <input
+                         type="url"
+                         value={marqueeForm.newsUrl}
+                         onChange={(e) => setMarqueeForm(prev => ({ ...prev, newsUrl: e.target.value }))}
+                         className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                         placeholder="https://example.com/rss"
+                       />
+                    </div>
+                  </div>
+                )}
+                {marqueeForm.contentType === 'weather' && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-500 font-bold">城市</label>
+                      <input type="text" value={marqueeForm.city} onChange={(e) => setMarqueeForm(prev => ({ ...prev, city: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 font-bold">緯度</label>
+                      <input type="text" value={marqueeForm.lat} onChange={(e) => setMarqueeForm(prev => ({ ...prev, lat: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 font-bold">經度</label>
+                      <input type="text" value={marqueeForm.lon} onChange={(e) => setMarqueeForm(prev => ({ ...prev, lon: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Scroll & Speed */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">滾動效果</label>
+                  <button
+                    onClick={() => setMarqueeForm(prev => ({ ...prev, scrolling: !prev.scrolling }))}
+                    className={`w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${marqueeForm.scrolling ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-slate-100 text-slate-500 border-2 border-slate-200'}`}
+                  >
+                    {marqueeForm.scrolling ? '✅ 開啟滾動' : '❌ 靜止顯示'}
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">停留時間</label>
+                  <select
+                    value={marqueeForm.marqueeSpeed}
+                    onChange={(e) => setMarqueeForm(prev => ({ ...prev, marqueeSpeed: parseInt(e.target.value) }))}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value={5}>5 秒</option>
+                    <option value={10}>10 秒</option>
+                    <option value={15}>15 秒</option>
+                    <option value={20}>20 秒</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Clock Toggle */}
+              <div className="grid grid-cols-1">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">右側時鐘</label>
+                  <button
+                    onClick={() => setMarqueeForm(prev => ({ ...prev, showClock: !prev.showClock }))}
+                    className={`w-full px-4 py-3 rounded-xl font-bold text-sm transition-all ${marqueeForm.showClock ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-slate-100 text-slate-500 border-2 border-slate-200'}`}
+                  >
+                    {marqueeForm.showClock ? '✅ 顯示 24h 時鐘' : '❌ 隱藏時鐘'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Preview (Slanted Style) */}
+              <div>
+                <label className="block text-sm font-black text-slate-700 mb-2">高品質即時預覽</label>
+                <div className="relative w-full h-[60px] rounded-xl overflow-hidden border-2 border-slate-200 bg-black">
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundColor: marqueeForm.bgImageUrl ? 'transparent' : marqueeForm.bgColor,
+                      backgroundImage: marqueeForm.bgImageUrl ? `url(${marqueeForm.bgImageUrl})` : undefined,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  >
+                    {/* Title Section (Slanted) */}
+                    {marqueeForm.title && (
+                      <div 
+                        className="absolute left-0 top-0 bottom-0 flex items-center pl-4 pr-10 z-30 shadow-lg" 
+                        style={{ 
+                          backgroundColor: marqueeForm.titleBgColor,
+                          clipPath: 'polygon(0 0, 100% 0, 80% 100%, 0% 100%)'
+                        }}
+                      >
+                        <span className="font-black text-[10px] whitespace-nowrap uppercase tracking-tighter" style={{ color: marqueeForm.titleTextColor }}>{marqueeForm.title}</span>
+                      </div>
+                    )}
+                    
+                    {/* Content Section */}
+                    <div className="absolute inset-0 flex items-center px-4" style={{ paddingLeft: marqueeForm.title ? '7rem' : '1rem', paddingRight: marqueeForm.showClock ? '6rem' : '1rem' }}>
+                      <span className="text-[10px] font-black truncate uppercase" style={{ color: marqueeForm.textColor }}>
+                        {marqueeForm.contentType === 'manual'
+                          ? (marqueeForm.content || '請輸入內容...')
+                          : marqueeForm.contentType === 'news'
+                          ? '新聞標題將在此捲動顯示...'
+                          : '台北市 26°C ☁️ 多雲'
+                        }
+                      </span>
+                    </div>
+
+                    {/* Clock Section (Slanted) */}
+                    {marqueeForm.showClock && (
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 flex items-center pl-10 pr-4 z-30 shadow-lg"
+                        style={{ 
+                          backgroundColor: marqueeForm.clockBgColor,
+                          clipPath: 'polygon(20% 0, 100% 0, 100% 100%, 0% 100%)'
+                        }}
+                      >
+                        <span className="font-black text-[10px] tabular-nums" style={{ color: marqueeForm.clockTextColor }}>09:00:00</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button onClick={() => setShowMarqueeModal(false)} className="px-6 py-3 text-slate-500 font-bold rounded-xl hover:bg-slate-100 transition-all">取消</button>
+                <button
+                  onClick={handleMarqueeSubmit}
+                  disabled={marqueeSaving}
+                  className="px-8 py-3 bg-amber-600 text-white font-bold rounded-xl shadow-xl hover:bg-amber-700 transition-all disabled:opacity-50"
+                >
+                  {marqueeSaving ? '儲存中...' : editingMarquee ? '更新跑馬燈' : '建立跑馬燈'}
+                </button>
               </div>
             </div>
           </div>

@@ -64,6 +64,7 @@ interface Schedule {
   frameId?: string | null;
   frame?: Asset | null;
   layoutConfig?: LayoutConfig | null;
+  marqueeConfig?: any;
   screen: Screen;
   items: { asset: Asset }[];
 }
@@ -217,6 +218,10 @@ export default function ScheduleManagement() {
   const [transition, setTransition] = useState('FADE');
   const [frameId, setFrameId] = useState<string>('');
   const [layoutConfig, setLayoutConfig] = useState<LayoutConfig | null>(null);
+  // Marquee config
+  const [marqueeEnabled, setMarqueeEnabled] = useState(false);
+  const [marqueeItems, setMarqueeItems] = useState<{assetId: string; duration: number}[]>([]);
+  const [marqueeTransition, setMarqueeTransition] = useState('FADE');
   // Queue: ordered array of asset objects with optional duration override
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isActive, setIsActive] = useState(true);
@@ -261,6 +266,9 @@ export default function ScheduleManagement() {
     setTransition('FADE');
     setFrameId('');
     setLayoutConfig(null);
+    setMarqueeEnabled(false);
+    setMarqueeItems([]);
+    setMarqueeTransition('FADE');
     setQueue([]);
     setIsActive(true);
   };
@@ -278,6 +286,16 @@ export default function ScheduleManagement() {
     setTransition((schedule as any).transition ?? 'FADE');
     setFrameId(schedule.frameId ?? '');
     setLayoutConfig((schedule as any).layoutConfig ?? null);
+    const mc = (schedule as any).marqueeConfig;
+    if (mc && mc.enabled) {
+      setMarqueeEnabled(true);
+      setMarqueeItems(mc.items || []);
+      setMarqueeTransition(mc.transitionEffect || 'FADE');
+    } else {
+      setMarqueeEnabled(false);
+      setMarqueeItems([]);
+      setMarqueeTransition('FADE');
+    }
     setQueue(schedule.items.map(item => ({
       queueKey: uid(),
       asset: item.asset,
@@ -327,6 +345,11 @@ export default function ScheduleManagement() {
       transition,
       frameId: frameId || null,
       layoutConfig: frameId ? layoutConfig : null,
+      marqueeConfig: marqueeEnabled && marqueeItems.length > 0 ? {
+        enabled: true,
+        items: marqueeItems,
+        transitionEffect: marqueeTransition,
+      } : null,
       isActive,
       startDate: startDate || null,
       endDate: endDate || null,
@@ -710,6 +733,106 @@ export default function ScheduleManagement() {
                     </div>
                   </div>
                 )}
+
+                {/* ─── Marquee Config ─── */}
+                <div className="border border-slate-200 bg-slate-50/50 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      📢 底部跑馬燈
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setMarqueeEnabled(!marqueeEnabled)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full font-black text-[9px] uppercase tracking-tighter transition-all ${marqueeEnabled ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+                    >
+                      {marqueeEnabled ? '已啟用' : '未啟用'}
+                    </button>
+                  </div>
+
+                  {marqueeEnabled && (
+                    <div className="space-y-3">
+                      {/* Available Marquee Assets */}
+                      <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">加入跑馬燈素材</label>
+                        <div className="flex flex-wrap gap-2">
+                          {assets.filter(a => a.type === 'MARQUEE').map(asset => {
+                            const isSelected = marqueeItems.some(m => m.assetId === asset.id);
+                            return (
+                              <button
+                                key={asset.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setMarqueeItems(prev => prev.filter(m => m.assetId !== asset.id));
+                                  } else {
+                                    setMarqueeItems(prev => [...prev, { assetId: asset.id, duration: 60 }]);
+                                  }
+                                }}
+                                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${isSelected ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200 hover:border-amber-400'}`}
+                              >
+                                📢 {asset.name}
+                              </button>
+                            );
+                          })}
+                          {assets.filter(a => a.type === 'MARQUEE').length === 0 && (
+                            <p className="text-xs text-slate-400 italic">尚未建立跑馬燈素材，請先到素材庫建立</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Selected marquee items with duration */}
+                      {marqueeItems.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">輪播順序與停留秒數</label>
+                          {marqueeItems.map((item, idx) => {
+                            const asset = assets.find(a => a.id === item.assetId);
+                            return (
+                              <div key={item.assetId} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2 border border-slate-200">
+                                <span className="text-[10px] font-black text-amber-600 w-5">{idx + 1}.</span>
+                                <span className="text-xs font-bold text-slate-700 flex-1 truncate">{asset?.name || item.assetId}</span>
+                                <input
+                                  type="number"
+                                  min={10}
+                                  max={300}
+                                  value={item.duration}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 60;
+                                    setMarqueeItems(prev => prev.map((m, i) => i === idx ? { ...m, duration: val } : m));
+                                  }}
+                                  className="w-16 px-2 py-1 text-xs font-bold border border-slate-200 rounded-lg text-center"
+                                />
+                                <span className="text-[9px] text-slate-400 font-bold">秒</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setMarqueeItems(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-red-400 hover:text-red-600 text-xs font-bold"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Transition Effect */}
+                      {marqueeItems.length > 1 && (
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">輪播過場效果</label>
+                          <select
+                            value={marqueeTransition}
+                            onChange={e => setMarqueeTransition(e.target.value)}
+                            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold"
+                          >
+                            <option value="FADE">淡入淡出</option>
+                            <option value="SLIDE_UP">向上滑入</option>
+                            <option value="NONE">直接切換</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Active toggle */}
                 <div className="flex items-center justify-between pt-2 px-1">

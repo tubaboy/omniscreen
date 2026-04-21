@@ -279,11 +279,11 @@ async function assetRoutes(fastify, opts) {
     const thumbKey = getS3Key(asset.thumbnailUrl, true);
     if (thumbKey) keysToDelete.push(thumbKey);
 
-    // If it's a WIDGET, check if it has a custom background image pointing to our S3
-    if (asset.type === 'WIDGET' && asset.url) {
+    // If it's a WIDGET or MARQUEE, check if it has a custom background image pointing to our S3
+    if ((asset.type === 'WIDGET' || asset.type === 'MARQUEE') && asset.url) {
       try {
         const parsed = JSON.parse(asset.url);
-        const bgUrl = parsed.config?.bgImageUrl;
+        const bgUrl = asset.type === 'MARQUEE' ? parsed?.bgImageUrl : parsed.config?.bgImageUrl;
         if (bgUrl && bgUrl.includes('/assets/file/raw-')) {
           const bgKey = getS3Key(bgUrl);
           if (bgKey) keysToDelete.push(bgKey);
@@ -394,6 +394,27 @@ async function assetRoutes(fastify, opts) {
     return { ...asset, size: asset.size.toString() };
   });
 
+  // POST Marquee Asset (no file upload)
+  fastify.post('/assets/marquee', async (request, reply) => {
+    const { name, config } = request.body || {};
+    if (!name) return reply.code(400).send({ error: 'name required' });
+
+    const marqueeConfig = config || {};
+    const asset = await fastify.prisma.asset.create({
+      data: {
+        name,
+        type: 'MARQUEE',
+        url: JSON.stringify(marqueeConfig),
+        thumbnailUrl: null,
+        size: BigInt(0),
+        mimeType: 'application/json',
+        orientation: 'LANDSCAPE',
+        duration: 0, // Marquee doesn't have a playback duration
+      },
+    });
+    return { ...asset, size: asset.size.toString() };
+  });
+
   // PATCH Asset (Update tags / name / validity dates / widget config)
   fastify.patch('/assets/:id', async (request, reply) => {
     const { id } = request.params;
@@ -442,9 +463,13 @@ async function assetRoutes(fastify, opts) {
       let currentConfig = { config: {} };
       try { currentConfig = JSON.parse(current.url || '{}'); } catch {}
       
-      // Cleanup old background if it changed
-      const oldBgUrl = currentConfig.config?.bgImageUrl;
-      const newBgUrl = config?.bgImageUrl;
+      // Cleanup old background if it changed (both WIDGET and MARQUEE use bgImageUrl)
+      const oldBgUrl = current.type === 'MARQUEE' 
+        ? currentConfig?.bgImageUrl 
+        : currentConfig.config?.bgImageUrl;
+      const newBgUrl = current.type === 'MARQUEE' 
+        ? config?.bgImageUrl 
+        : config?.bgImageUrl;
       
       if (oldBgUrl && oldBgUrl !== newBgUrl && oldBgUrl.includes('/assets/file/raw-')) {
         const match = oldBgUrl.match(/\/([^/]+\.[a-zA-Z0-9]+)(?:\?|$)/);
@@ -462,11 +487,16 @@ async function assetRoutes(fastify, opts) {
         }
       }
 
-      const merged = {
-        widgetType: widgetType ?? currentConfig.widgetType,
-        config: config ?? currentConfig.config,
-      };
-      urlUpdate = { url: JSON.stringify(merged) };
+      if (current.type === 'MARQUEE') {
+        // MARQUEE stores config directly (flat JSON)
+        urlUpdate = { url: JSON.stringify(config || currentConfig) };
+      } else {
+        const merged = {
+          widgetType: widgetType ?? currentConfig.widgetType,
+          config: config ?? currentConfig.config,
+        };
+        urlUpdate = { url: JSON.stringify(merged) };
+      }
     }
 
     const asset = await fastify.prisma.asset.update({

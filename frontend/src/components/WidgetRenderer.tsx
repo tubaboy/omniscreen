@@ -41,6 +41,7 @@ export interface DashboardConfig {
   contentType?: 'manual' | 'news';
   newsUrl?: string;
   marqueeSpeed?: number;
+  showBottomTicker?: boolean;
 }
 
 export interface WidgetConfig {
@@ -109,6 +110,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     contentType = 'manual',
     newsUrl = 'https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
     marqueeSpeed = 10,
+    showBottomTicker = true,
   } = config;
 
   const stayTime = Number(marqueeSpeed) || 10;
@@ -260,7 +262,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
   const currentWmo = weather ? (WMO_MAPPING[weather.current.weatherCode] ?? { label: '讀取中', Icon: Cloud }) : null;
 
   return (
-    <div className="w-full h-full relative overflow-hidden flex flex-col justify-between font-sans text-white bg-black">
+    <div className="w-full h-full relative overflow-hidden flex flex-col font-sans text-white bg-black">
       {/* ─── External Assets ─── */}
       <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
       
@@ -302,8 +304,11 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
         />
       </div>
 
-      {/* ─── Top Section: Time and Date ─── */}
-      <div className="relative z-10 flex flex-col items-center pt-20 space-y-1">
+      {/* ─── Center Content Wrapper ─── */}
+      <div className="flex-1 flex flex-col justify-center relative z-10">
+        
+        {/* ─── Top Section: Time and Date ─── */}
+        <div className="flex flex-col items-center pb-8 space-y-1">
         <h1 className="font-serif text-[160px] leading-none tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex items-baseline">
           {renderTimeWithBlinkingColons(timeMain)}
           <span className="text-[50px] font-light opacity-80 uppercase tracking-[0.2em] ml-6">
@@ -412,8 +417,10 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
           </div>
         </div>
       </div>
+      </div>
 
       {/* ─── Bottom Section: News Ticker ─── */}
+      {showBottomTicker && (
       <div className="relative z-20 w-full glass border-x-0 border-b-0 py-8 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
         <div className="flex items-center px-12 h-[80px]">
           {/* Label using the Widget Title */}
@@ -446,6 +453,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

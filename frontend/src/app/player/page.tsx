@@ -6,6 +6,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import YouTube from 'react-youtube';
 import api from '@/lib/api';
 import WidgetRenderer, { WidgetConfig } from '@/components/WidgetRenderer';
+import MarqueeBar, { MarqueeItem } from '@/components/MarqueeBar';
 
 import { savePlaylist, loadPlaylist, precacheUrls } from '@/hooks/useOfflinePlaylist';
 
@@ -45,6 +46,10 @@ function PlayerContent() {
   const [refreshKey, setRefreshKey] = useState(0);
   // Increments each time a single-item IMAGE/WIDGET/WEB completes a cycle, triggering the timer effect to restart
   const [singleItemTick, setSingleItemTick] = useState(0);
+
+  // Marquee state
+  const [marqueeItems, setMarqueeItems] = useState<MarqueeItem[]>([]);
+  const [marqueeTransition, setMarqueeTransition] = useState('FADE');
 
   // HUD state
   const [serverHud, setServerHud] = useState(true);
@@ -285,10 +290,19 @@ function PlayerContent() {
         }
 
         if (plRes.status === 'fulfilled' && screenId) {
-          const newPlaylist = plRes.value.data as PlaylistItem[];
+          const responseData = plRes.value.data;
+          // Handle both new format { items, marqueeItems } and legacy flat array
+          const newPlaylist: PlaylistItem[] = Array.isArray(responseData) ? responseData : (responseData.items || []);
+          const newMarqueeItems: MarqueeItem[] = Array.isArray(responseData) ? [] : (responseData.marqueeItems || []);
+          const newMarqueeTransition: string = Array.isArray(responseData) ? 'FADE' : (responseData.marqueeTransition || 'FADE');
+          
           networkSuccess = true;
           setIsOffline(false);
           isCurrentlyOffline = false;
+
+          // Update marquee items
+          setMarqueeItems(newMarqueeItems);
+          setMarqueeTransition(newMarqueeTransition);
 
           // Safe Cache: 即使硬碟寫入失敗，也不應影響連線狀態
           try {
@@ -691,6 +705,11 @@ function PlayerContent() {
         <div className="absolute inset-0 z-20 pointer-events-none">
           <img src={currentItem.frameUrl} alt="Frame Overlay" className="w-full h-full object-cover" />
         </div>
+      )}
+
+      {/* Marquee Bar Overlay */}
+      {marqueeItems.length > 0 && (
+        <MarqueeBar items={marqueeItems} transition={marqueeTransition} />
       )}
 
       {/* Sound Toggle Button */}

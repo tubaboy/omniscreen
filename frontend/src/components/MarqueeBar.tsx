@@ -94,10 +94,14 @@ function NewsTicker({
   if (items.length === 0) return null;
 
   return (
-    <div className="relative overflow-hidden h-full flex items-center flex-1 min-w-0 px-4">
+    <div className="relative overflow-hidden h-full flex items-center flex-1 min-w-0 px-6">
       <p
-        className={`text-3xl font-black truncate transition-all duration-400 ${animClass}`}
-        style={{ color: textColor }}
+        className={`font-black truncate transition-all duration-400 ${animClass}`}
+        style={{ 
+          color: textColor,
+          fontSize: 'clamp(20px, 1.8vw, 36px)',
+          lineHeight: '1.2'
+        }}
       >
         {items[idx] || ''}
       </p>
@@ -232,35 +236,45 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
 
   return (
     <div
-      className="absolute inset-0 font-sans overflow-hidden"
+      className="absolute inset-0 font-sans overflow-hidden flex items-stretch"
       style={{
-        backgroundColor: bgImageUrl ? 'transparent' : (bgColor === 'transparent' ? '#D9D9C3' : bgColor),
+        backgroundColor: bgImageUrl ? 'transparent' : (bgColor === 'transparent' ? '#dee2ca' : bgColor),
         backgroundImage: bgImageUrl ? `url(${bgImageUrl})` : undefined,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
     >
-      {/* 1. Title Block (Left, Slanted Right) - Absolute to avoid gaps */}
+      {/* 1. Title Block (Left, Slanted Right) */}
       {title && (
         <div
-          className="absolute left-0 top-0 bottom-0 flex items-center pl-8 pr-16 z-30"
+          className="flex-none flex items-center pl-8 pr-16 z-30"
           style={{ 
             backgroundColor: titleBgColor || '#0b486b',
-            clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)',
+            clipPath: 'polygon(0 0, 100% 0, calc(100% - 40px) 100%, 0% 100%)',
           }}
         >
           <span 
-            className="font-black text-3xl whitespace-nowrap tracking-wider"
-            style={{ color: titleTextColor || '#FFFFFF' }}
+            className="font-black whitespace-nowrap tracking-wider"
+            style={{ 
+              color: titleTextColor || '#FFFFFF',
+              fontSize: 'clamp(18px, 1.6vw, 32px)'
+            }}
           >
             {title}
           </span>
         </div>
       )}
 
-      {/* 2. Content Area (Center) */}
-      <div className="absolute inset-0 z-10">
-        <div className="h-full" style={{ paddingLeft: title ? '20rem' : '2rem', paddingRight: showClock ? '18rem' : '2rem' }}>
+      {/* 2. Content Area (Center) - Flexible */}
+      <div 
+        className="flex-1 min-w-0 z-10"
+        style={{ 
+          marginLeft: title ? '-40px' : '0',
+          marginRight: showClock ? '-40px' : '0',
+          backgroundColor: bgImageUrl ? 'transparent' : (bgColor === 'transparent' ? '#dee2ca' : bgColor),
+        }}
+      >
+        <div className="h-full" style={{ paddingLeft: title ? '40px' : '2rem', paddingRight: showClock ? '40px' : '2rem' }}>
           <NewsTicker
             items={contentItems}
             speed={marqueeSpeed}
@@ -270,13 +284,13 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
         </div>
       </div>
 
-      {/* 3. Clock Block (Right, Slanted Left) - Absolute to avoid gaps */}
+      {/* 3. Clock Block (Right, Slanted Left) */}
       {showClock && (
         <div 
-          className="absolute right-0 top-0 bottom-0 flex items-center pl-16 pr-8 z-30"
+          className="flex-none flex items-center pl-16 pr-8 z-30"
           style={{ 
             backgroundColor: clockBgColor,
-            clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)',
+            clipPath: 'polygon(40px 0, 100% 0, 100% 100%, 0% 100%)',
           }}
         >
           <Clock24 textColor={clockTextColor || '#FFFFFF'} />

@@ -1927,13 +1927,13 @@ export default function AssetLibrary() {
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">內容來源</label>
                 <div className="flex gap-2 mb-3">
-                  {(['manual', 'news', 'weather'] as const).map(t => (
+                  {(['manual', 'news'] as const).map(t => (
                     <button
                       key={t}
                       onClick={() => setMarqueeForm(prev => ({ ...prev, contentType: t }))}
                       className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${marqueeForm.contentType === t ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                     >
-                      {t === 'manual' ? '≰️ 自訂文字' : t === 'news' ? '📰 RSS 新聞' : '🌤️ 天氣摘要'}
+                      {t === 'manual' ? '≰️ 自訂文字' : '📰 RSS 新聞'}
                     </button>
                   ))}
                 </div>
@@ -1972,22 +1972,25 @@ export default function AssetLibrary() {
                     </div>
                   </div>
                 )}
-                {marqueeForm.contentType === 'weather' && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-slate-500 font-bold">城市</label>
-                      <input type="text" value={marqueeForm.city} onChange={(e) => setMarqueeForm(prev => ({ ...prev, city: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 font-bold">緯度</label>
-                      <input type="text" value={marqueeForm.lat} onChange={(e) => setMarqueeForm(prev => ({ ...prev, lat: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 font-bold">經度</label>
-                      <input type="text" value={marqueeForm.lon} onChange={(e) => setMarqueeForm(prev => ({ ...prev, lon: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
-                    </div>
+              </div>
+
+              {/* Location Settings (Used for Right Block Weather) */}
+              <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                <label className="block text-[10px] font-black text-blue-900 uppercase tracking-widest mb-3">🌍 地區設定 (用於右側天氣輪播)</label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[9px] text-slate-400 font-bold block mb-1">城市名稱</label>
+                    <input type="text" value={marqueeForm.city} onChange={(e) => setMarqueeForm(prev => ({ ...prev, city: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold" placeholder="台北市" />
                   </div>
-                )}
+                  <div>
+                    <label className="text-[9px] text-slate-400 font-bold block mb-1">緯度</label>
+                    <input type="text" value={marqueeForm.lat} onChange={(e) => setMarqueeForm(prev => ({ ...prev, lat: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 font-bold block mb-1">經度</label>
+                    <input type="text" value={marqueeForm.lon} onChange={(e) => setMarqueeForm(prev => ({ ...prev, lon: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold" />
+                  </div>
+                </div>
               </div>
 
               {/* Scroll & Speed */}
@@ -2060,9 +2063,7 @@ export default function AssetLibrary() {
                       <span className="text-[10px] font-black truncate uppercase" style={{ color: marqueeForm.textColor }}>
                         {marqueeForm.contentType === 'manual'
                           ? (marqueeForm.content || '請輸入內容...')
-                          : marqueeForm.contentType === 'news'
-                          ? '新聞標題將在此捲動顯示...'
-                          : '台北市 26°C ☁️ 多雲'
+                          : '新聞標題將在此捲動顯示...'
                         }
                       </span>
                     </div>
@@ -2076,7 +2077,10 @@ export default function AssetLibrary() {
                           clipPath: 'polygon(20% 0, 100% 0, 100% 100%, 0% 100%)'
                         }}
                       >
-                        <span className="font-black text-[10px] tabular-nums" style={{ color: marqueeForm.clockTextColor }}>09:00:00</span>
+                        <div className="flex flex-col items-center">
+                          <span className="font-black text-[10px] tabular-nums" style={{ color: marqueeForm.clockTextColor }}>09:00:00</span>
+                          <span className="font-black text-[8px] opacity-70" style={{ color: marqueeForm.clockTextColor }}>台北市 26°C</span>
+                        </div>
                       </div>
                     )}
                   </div>

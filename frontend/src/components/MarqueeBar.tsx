@@ -155,6 +155,49 @@ function useWeatherSummary(lat?: string, lon?: string, city?: string) {
   return summary;
 }
 
+function RotatingRightBlock({ 
+  lat, 
+  lon, 
+  city, 
+  textColor 
+}: { 
+  lat?: string; 
+  lon?: string; 
+  city?: string; 
+  textColor: string;
+}) {
+  const [mode, setMode] = useState<'CLOCK' | 'WEATHER'>('CLOCK');
+  const weather = useWeatherSummary(lat, lon, city);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setMode(prev => prev === 'CLOCK' ? 'WEATHER' : 'CLOCK');
+    }, 15000); // 15s rotation for better readability
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="h-full overflow-hidden flex flex-col justify-center items-center px-2">
+      <div 
+        className="transition-transform duration-1000 ease-in-out"
+        style={{ transform: mode === 'CLOCK' ? 'translateY(25%)' : 'translateY(-25%)' }}
+      >
+        <div className="h-[60px] flex items-center justify-center">
+          <Clock24 textColor={textColor} />
+        </div>
+        <div className="h-[60px] flex items-center justify-center">
+          <span 
+            className="font-black tracking-wider whitespace-nowrap"
+            style={{ color: textColor, fontSize: 'clamp(14px, 1.3vw, 26px)' }}
+          >
+            {weather || 'Loading...'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function weatherCodeToText(code: number): string {
   if (code === 0) return '☀️ 晴';
   if (code <= 3) return '⛅ 多雲';
@@ -215,18 +258,11 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
   } = config;
 
   const newsHeadlines = useNewsFeed(contentType === 'news' ? newsUrl : undefined);
-  const weatherSummary = useWeatherSummary(
-    contentType === 'weather' ? lat : undefined,
-    contentType === 'weather' ? lon : undefined,
-    city
-  );
 
   // Determine content items
   let contentItems: string[] = [];
   if (contentType === 'news' && newsHeadlines.length > 0) {
     contentItems = newsHeadlines;
-  } else if (contentType === 'weather' && weatherSummary) {
-    contentItems = [weatherSummary];
   } else if (content) {
     contentItems = content.split('\n').filter(Boolean);
     if (contentItems.length === 0) contentItems = [content];
@@ -284,7 +320,7 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
         </div>
       </div>
 
-      {/* 3. Clock Block (Right, Slanted Left) */}
+      {/* 3. Clock & Weather Block (Right, Slanted Left) */}
       {showClock && (
         <div 
           className="flex-none flex items-center pl-16 pr-8 z-30"
@@ -293,7 +329,12 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
             clipPath: 'polygon(40px 0, 100% 0, 100% 100%, 0% 100%)',
           }}
         >
-          <Clock24 textColor={clockTextColor || '#FFFFFF'} />
+          <RotatingRightBlock 
+            lat={lat} 
+            lon={lon} 
+            city={city} 
+            textColor={clockTextColor || '#FFFFFF'} 
+          />
         </div>
       )}
     </div>

@@ -685,10 +685,30 @@ function PlayerContent() {
                   }}
                 >
                   {config.contentType === 'YOUTUBE' ? (
-                    <iframe 
-                      src={`https://www.youtube.com/embed/${config.youtubeId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&rel=0&iv_load_policy=3&modestbranding=1`}
+                    <YouTube
+                      videoId={config.youtubeId}
+                      opts={{
+                        width: '100%',
+                        height: '100%',
+                        playerVars: {
+                          autoplay: 1,
+                          mute: isMuted ? 1 : 0,
+                          controls: 0,
+                          disablekb: 1,
+                          rel: 0,
+                          modestbranding: 1,
+                          playsinline: 1,
+                        }
+                      }}
                       className="w-full h-full border-0 pointer-events-none"
-                      allow="autoplay; encrypted-media"
+                      iframeClassName="w-full h-full"
+                      onEnd={() => {
+                        clearYtLiveTimer();
+                        transitionTo((currentIndex + 1) % playlist.length);
+                      }}
+                      onReady={(e) => {
+                        if (isMuted) e.target.mute(); else e.target.unMute();
+                      }}
                     />
                   ) : (
                     <video

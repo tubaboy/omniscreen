@@ -217,8 +217,8 @@ function useNewsFeed(url?: string) {
     if (!url) return;
     const fetchNews = async () => {
       try {
-        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
-        const res = await fetch(proxyUrl);
+        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&_t=${Date.now()}`;
+        const res = await fetch(proxyUrl, { cache: 'no-store' });
         const data = await res.json();
         if (data.items) {
           setHeadlines(data.items.slice(0, 20).map((i: any) => i.title));

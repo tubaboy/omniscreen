@@ -18,6 +18,7 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
   const [contentAssetId, setContentAssetId] = useState('');
   const [videoRect, setVideoRect] = useState({ top: 10, left: 10, width: 80, height: 80 });
   const [isSaving, setIsSaving] = useState(false);
+  const [duration, setDuration] = useState(30);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
           if (fAsset) setFrameAssetId(fAsset.id);
           if (cAsset) setContentAssetId(cAsset.id);
           setVideoRect(config.videoRect || { top: 10, left: 10, width: 80, height: 80 });
+          setDuration(config.duration || initialData.duration || 30);
         } catch (e) {
           console.error('Failed to parse campaign config', e);
         }
@@ -61,7 +63,7 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
       youtubeId: contentAsset.type === 'YOUTUBE' ? contentAsset.url : null,
       contentType: contentAsset.type, // VIDEO or YOUTUBE
       videoRect,
-      duration: contentAsset.duration || 30
+      duration: Number(duration)
     };
 
     try {
@@ -164,7 +166,11 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">選擇內容影片 (VIDEO / YOUTUBE)</label>
               <select
                 value={contentAssetId}
-                onChange={e => setContentAssetId(e.target.value)}
+                onChange={e => {
+                  setContentAssetId(e.target.value);
+                  const asset = availableAssets.find(a => a.id === e.target.value);
+                  if (asset && asset.duration) setDuration(asset.duration);
+                }}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white transition-all"
               >
                 <option value="">-- 請選擇 --</option>
@@ -172,6 +178,17 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
                   <option key={a.id} value={a.id}>{a.name} ({a.type})</option>
                 ))}
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">播放時長 (秒)</label>
+              <input
+                type="number"
+                value={duration}
+                onChange={e => setDuration(Number(e.target.value))}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white transition-all"
+                min="1"
+              />
             </div>
 
             <div className="space-y-4 pt-4 border-t border-slate-100">

@@ -144,4 +144,5 @@ enum AssetType {
   WEB
   YOUTUBE
   MARQUEE
+  CAMPAIGN
 }

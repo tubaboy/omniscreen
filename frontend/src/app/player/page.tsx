@@ -22,7 +22,7 @@ interface PlaylistItem {
   assetId?: string;
   scheduleId?: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE';
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'CAMPAIGN' | 'MARQUEE';
   url: string | null;
   duration: number;
   widgetConfig?: WidgetConfig;
@@ -643,6 +643,7 @@ function PlayerContent() {
               }
             }}
             className="w-full h-full border-0 pointer-events-none"
+            iframeClassName="w-full h-full"
             onEnd={() => {
               // Clear live timer if it was set (shouldn't fire for live, but safety)
               clearYtLiveTimer();
@@ -668,6 +669,52 @@ function PlayerContent() {
               }
             }}
           />
+        ) : currentItem.type === 'CAMPAIGN' ? (
+          (() => {
+            let config: any = {};
+            try { config = JSON.parse(currentItem.url || '{}'); } catch {}
+            return (
+              <div className="relative w-full h-full">
+                <div 
+                  className="absolute overflow-hidden"
+                  style={{
+                    top: `${config.videoRect?.top ?? 0}%`,
+                    left: `${config.videoRect?.left ?? 0}%`,
+                    width: `${config.videoRect?.width ?? 100}%`,
+                    height: `${config.videoRect?.height ?? 100}%`,
+                  }}
+                >
+                  {config.contentType === 'YOUTUBE' ? (
+                    <iframe 
+                      src={`https://www.youtube.com/embed/${config.youtubeId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&rel=0&iv_load_policy=3&modestbranding=1`}
+                      className="w-full h-full border-0 pointer-events-none"
+                      allow="autoplay; encrypted-media"
+                    />
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      src={config.contentUrl}
+                      className="w-full h-full object-contain"
+                      autoPlay
+                      muted={isMuted}
+                      playsInline
+                      onEnded={() => transitionTo((currentIndex + 1) % playlist.length)}
+                      onPlay={() => {
+                        if (!isMuted && videoRef.current) {
+                          videoRef.current.play().catch(() => setIsMuted(true));
+                        }
+                      }}
+                      onTimeUpdate={() => {
+                        const v = videoRef.current;
+                        if (v && v.duration) setVideoProgress(v.currentTime / v.duration);
+                      }}
+                    />
+                  )}
+                </div>
+                <img src={config.frameUrl} className="absolute inset-0 w-full h-full object-cover pointer-events-none" alt="Campaign Frame" />
+              </div>
+            );
+          })()
         ) : currentItem.type === 'IMAGE' ? (
           <img src={currentItem.url!} className="w-full h-full object-contain" alt="display" />
         ) : (
@@ -772,7 +819,7 @@ function PlayerContent() {
         <div className="flex items-center gap-4 px-6 py-4">
           <div className="flex items-center gap-3 bg-black/50 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full">
             <span className="text-white/50 text-[10px] font-black uppercase tracking-widest">
-              {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : currentItem.type === 'WEB' ? 'WEB_PAGE' : currentItem.type === 'YOUTUBE' ? 'YOUTUBE' : 'VIDEO'}
+              {currentItem.type === 'IMAGE' ? 'IMAGE' : currentItem.type === 'WIDGET' ? 'WIDGET' : currentItem.type === 'WEB' ? 'WEB_PAGE' : currentItem.type === 'YOUTUBE' ? 'YOUTUBE' : currentItem.type === 'CAMPAIGN' ? 'CAMPAIGN' : 'VIDEO'}
             </span>
             {/* YouTube LIVE badge */}
             {currentItem.type === 'YOUTUBE' && ytIsLive && (

@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import api, { Asset } from '@/lib/api';
 import { useRouter } from 'next/navigation';
-import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, X, Play, Eye, Tag, BarChart3, Zap, Clock, CloudSun, Megaphone, Edit3, CheckSquare, Calendar, LayoutGrid, List as ListIcon, Filter, Crop, Youtube } from 'lucide-react';
+import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, X, Play, Eye, Tag, BarChart3, Zap, Clock, CloudSun, Megaphone, Edit3, CheckSquare, Calendar, LayoutGrid, List as ListIcon, Filter, Crop, Youtube, Layers } from 'lucide-react';
 import ImageCropperModal from './components/ImageCropperModal';
 import YouTubeAssetModal from './components/YouTubeAssetModal';
+import CampaignAssetModal from './components/CampaignAssetModal';
 import WidgetRenderer, { WidgetConfig } from '@/components/WidgetRenderer';
 
 type WidgetType = 'DASHBOARD';
@@ -269,7 +270,10 @@ export default function AssetLibrary() {
   const [showYoutubeModal, setShowYoutubeModal] = useState(false);
   const [editingYouTubeAsset, setEditingYouTubeAsset] = useState<any | null>(null);
 
-  // Marquee Modal State
+  // Campaign Modal State
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<Asset | null>(null);
+
   const [showMarqueeModal, setShowMarqueeModal] = useState(false);
   const [editingMarquee, setEditingMarquee] = useState<any | null>(null);
   const [marqueeSaving, setMarqueeSaving] = useState(false);
@@ -311,6 +315,19 @@ export default function AssetLibrary() {
     }
   };
 
+  const openEditCampaignModal = (asset: any) => {
+    setEditingCampaign(asset);
+    setShowCampaignModal(true);
+  };
+
+  const handleSaveCampaign = async (name: string, config: any) => {
+    if (editingCampaign) {
+      await api.patch(`/assets/${editingCampaign.id}`, { name, config });
+    } else {
+      await api.post('/assets/campaign', { name, config });
+    }
+    fetchAssets();
+  };
 
   const openWidgetModal = () => {
     setEditingWidget(null);
@@ -666,6 +683,15 @@ export default function AssetLibrary() {
               <Megaphone size={18} />
               建立跑馬燈
             </button>
+            {/* Campaign Button */}
+            <button
+              onClick={() => { setEditingCampaign(null); setShowCampaignModal(true); }}
+              className="group relative inline-flex items-center gap-2 px-6 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-900/20 hover:bg-indigo-700 transition-all overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+              <Layers size={18} />
+              建立活動托播
+            </button>
             {/* URL Button */}
             <button
               onClick={openUrlModal}
@@ -770,6 +796,7 @@ export default function AssetLibrary() {
               <option value="WIDGET">微件 (Widget)</option>
               <option value="WEB">網頁 (Web)</option>
               <option value="YOUTUBE">YouTube</option>
+              <option value="CAMPAIGN">活動托播 (Campaign)</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -849,6 +876,12 @@ export default function AssetLibrary() {
                           <span className="text-xl">🪄</span>
                         ) : asset.type === 'WEB' ? (
                           <span className="text-xl">🌐</span>
+                        ) : asset.type === 'YOUTUBE' ? (
+                          <img src={asset.thumbnailUrl || ''} className="w-full h-full object-cover" />
+                        ) : asset.type === 'CAMPAIGN' ? (
+                           <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-white">
+                             <Layers size={18} />
+                           </div>
                         ) : asset.type === 'IMAGE' ? (
                            <img src={asset.url} className="w-full h-full object-cover" />
                         ) : (
@@ -910,6 +943,11 @@ export default function AssetLibrary() {
                        ) : null}
                        {asset.type === 'MARQUEE' ? (
                           <button onClick={(e) => { e.stopPropagation(); openEditMarqueeModal(asset); }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="編輯跑馬燈">
+                            <Megaphone size={16}/>
+                          </button>
+                       ) : null}
+                       {asset.type === 'CAMPAIGN' ? (
+                          <button onClick={(e) => { e.stopPropagation(); openEditCampaignModal(asset); }} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="編輯活動托播">
                             <Megaphone size={16}/>
                           </button>
                        ) : null}
@@ -1102,6 +1140,111 @@ export default function AssetLibrary() {
             );
           }
 
+          // ─── YouTube Card ───────────────────────────────────────
+          if (asset.type === 'YOUTUBE') {
+            return (
+              <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-red-500 bg-red-50 shadow-2xl shadow-red-500/20 ring-4 ring-red-500/20' : 'bg-slate-100 border-slate-200 hover:shadow-2xl hover:shadow-red-500/30'}`}>
+                
+                {/* Checkbox Overlay */}
+                <div className={`absolute top-4 left-4 z-40 transition-all ${selectedAssetIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div onClick={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} className={`w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer transition-all border-2 ${selectedAssetIds.has(asset.id) ? 'bg-red-600 border-red-600' : 'bg-black/20 backdrop-blur-md border-white/50 hover:border-white'}`}>
+                    {selectedAssetIds.has(asset.id) && <CheckSquare size={16} className="text-white" />}
+                  </div>
+                </div>
+
+                <div className="relative overflow-hidden aspect-video bg-black flex items-center justify-center cursor-pointer">
+                  {asset.thumbnailUrl ? (
+                    <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  ) : (
+                    <Youtube size={48} className="text-red-600" />
+                  )}
+                  <div className="absolute inset-0 bg-red-600/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }}
+                      className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
+                    >
+                      <Eye size={14} /> 預覽
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditYouTubeModal(asset); }}
+                      className="bg-red-500/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2"
+                    >
+                      <Edit3 size={14} /> 編輯
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }}
+                      className="bg-red-500/20 backdrop-blur-md text-red-200 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs flex items-center gap-2"
+                    >
+                      <Trash2 size={14} /> 刪除
+                    </button>
+                  </div>
+                  <div className="absolute top-3 right-3 z-20">
+                    <span className="px-2 py-0.5 bg-red-600 text-white text-[8px] font-black uppercase rounded shadow-lg">YouTube</span>
+                  </div>
+                </div>
+                <div className="p-3 bg-white border-t border-slate-100">
+                  <p className="text-xs font-bold text-slate-800 truncate mb-1">{asset.name}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] text-slate-400 font-bold">ID: {asset.url}</span>
+                    {((asset as any).usageCount || 0) > 0 ? (
+                      <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold shrink-0">🔗 {((asset as any).usageCount || 0)}</span>
+                    ) : (
+                      <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">👻 閒置</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // ─── Campaign Card ──────────────────────────────────────
+          if (asset.type === 'CAMPAIGN') {
+            return (
+              <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-indigo-600 bg-indigo-50 shadow-2xl shadow-indigo-500/20 ring-4 ring-indigo-500/20' : 'bg-slate-100 border-slate-200 hover:shadow-2xl hover:shadow-indigo-500/30'}`}>
+                
+                {/* Checkbox Overlay */}
+                <div className={`absolute top-4 left-4 z-40 transition-all ${selectedAssetIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div onClick={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} className={`w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer transition-all border-2 ${selectedAssetIds.has(asset.id) ? 'bg-indigo-600 border-indigo-600' : 'bg-black/20 backdrop-blur-md border-white/50 hover:border-white'}`}>
+                    {selectedAssetIds.has(asset.id) && <CheckSquare size={16} className="text-white" />}
+                  </div>
+                </div>
+
+                <div className="relative overflow-hidden aspect-video bg-slate-900 flex items-center justify-center cursor-pointer">
+                  {asset.thumbnailUrl ? (
+                    <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  ) : (
+                    <Layers size={48} className="text-indigo-400" />
+                  )}
+                  <div className="absolute inset-0 bg-indigo-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4">
+                    <button onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }} className="bg-indigo-500/20 backdrop-blur-md text-indigo-100 px-4 py-2 rounded-xl border border-indigo-500/20 hover:bg-indigo-500/40 transition-all font-bold text-xs flex items-center gap-2">
+                      <Eye size={14} /> 預覽
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); openEditCampaignModal(asset); }} className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2">
+                      <Edit3 size={14} /> 編輯
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }} className="bg-red-500/20 backdrop-blur-md text-red-200 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs flex items-center gap-2">
+                      <Trash2 size={14} /> 刪除
+                    </button>
+                  </div>
+                  <div className="absolute top-3 right-3 z-20">
+                    <span className="px-2 py-0.5 bg-indigo-600 text-white text-[8px] font-black uppercase rounded shadow-lg">活動托播</span>
+                  </div>
+                </div>
+                <div className="p-3 bg-white border-t border-slate-100">
+                  <p className="text-xs font-bold text-slate-800 truncate mb-1">{asset.name}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] text-indigo-500 font-bold">複合素材</span>
+                    {((asset as any).usageCount || 0) > 0 ? (
+                      <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold shrink-0">🔗 {((asset as any).usageCount || 0)}</span>
+                    ) : (
+                      <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">👻 閒置</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
           // ─── Media Card (IMAGE / VIDEO) ────────────────────────
           return (
             <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-[#1A5336] bg-green-50 shadow-2xl shadow-green-500/20 ring-4 ring-[#1A5336]/20' : 'bg-white border-slate-200/60 hover:shadow-2xl hover:shadow-slate-200/50'}`}>
@@ -1157,14 +1300,6 @@ export default function AssetLibrary() {
                         className="bg-emerald-500/20 backdrop-blur-md text-emerald-100 px-4 py-2 rounded-xl border border-emerald-500/20 hover:bg-emerald-500/40 transition-all font-bold text-xs flex items-center gap-2"
                       >
                         <Crop size={14} /> 裁切
-                      </button>
-                    )}
-                    {asset.type === 'YOUTUBE' && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEditYouTubeModal(asset); }}
-                        className="bg-red-500/20 backdrop-blur-md text-red-100 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs flex items-center gap-2"
-                      >
-                        <Edit3 size={14} /> 編輯
                       </button>
                     )}
                     <button
@@ -1765,6 +1900,40 @@ export default function AssetLibrary() {
               />
             )}
 
+            {previewAsset.type === 'CAMPAIGN' && (
+              <div className="w-full h-full flex items-center justify-center p-4">
+                <div className="w-full h-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/20 shadow-2xl relative">
+                  {(() => {
+                    let config: any = {};
+                    try { config = JSON.parse(previewAsset.url || '{}'); } catch {}
+                    return (
+                      <>
+                        <div 
+                          className="absolute overflow-hidden"
+                          style={{
+                            top: `${config.videoRect?.top ?? 0}%`,
+                            left: `${config.videoRect?.left ?? 0}%`,
+                            width: `${config.videoRect?.width ?? 100}%`,
+                            height: `${config.videoRect?.height ?? 100}%`,
+                          }}
+                        >
+                          {config.contentType === 'YOUTUBE' ? (
+                            <iframe 
+                              src={`https://www.youtube.com/embed/${getYoutubeId(config.youtubeId)}?autoplay=1&mute=1&controls=0`}
+                              className="w-full h-full border-none"
+                            />
+                          ) : (
+                            <video src={config.contentUrl} autoPlay muted loop className="w-full h-full object-contain" />
+                          )}
+                        </div>
+                        <img src={config.frameUrl} className="absolute inset-0 w-full h-full object-cover pointer-events-none" alt="Campaign Frame" />
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
             {previewAsset.type === 'WIDGET' && (
               <div className="w-full h-full bg-slate-900 flex items-center justify-center p-10">
                  <div className="w-full aspect-video scale-90 border-4 border-slate-700 rounded-xl shadow-2xl overflow-hidden bg-slate-950">
@@ -2103,6 +2272,13 @@ export default function AssetLibrary() {
         </div>
       )}
 
+      <CampaignAssetModal
+        isOpen={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        onSave={handleSaveCampaign}
+        initialData={editingCampaign}
+        availableAssets={assets}
+      />
     </div>
   );
 }

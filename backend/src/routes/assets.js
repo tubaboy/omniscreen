@@ -8,8 +8,18 @@ const pipeline = promisify(require('stream').pipeline);
 const { fixAssetUrls } = require('../utils/url');
 
 // Set FFmpeg paths dynamically for development and production environments
-const ffmpegPath = process.env.FFMPEG_PATH || (os.platform() === 'win32' ? path.join(os.homedir(), 'scoop', 'shims', 'ffmpeg.exe') : 'ffmpeg');
-const ffprobePath = process.env.FFPROBE_PATH || (os.platform() === 'win32' ? path.join(os.homedir(), 'scoop', 'shims', 'ffprobe.exe') : 'ffprobe');
+const ffmpegPath = process.env.FFMPEG_PATH || (os.platform() === 'win32' 
+  ? (fs.existsSync(path.join(os.homedir(), 'scoop', 'shims', 'ffmpeg.exe')) 
+      ? path.join(os.homedir(), 'scoop', 'shims', 'ffmpeg.exe') 
+      : 'ffmpeg') 
+  : 'ffmpeg');
+
+const ffprobePath = process.env.FFPROBE_PATH || (os.platform() === 'win32' 
+  ? (fs.existsSync(path.join(os.homedir(), 'scoop', 'shims', 'ffprobe.exe')) 
+      ? path.join(os.homedir(), 'scoop', 'shims', 'ffprobe.exe') 
+      : 'ffprobe') 
+  : 'ffprobe');
+
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
 
@@ -415,6 +425,26 @@ async function assetRoutes(fastify, opts) {
     return { ...asset, size: asset.size.toString() };
   });
 
+  // POST Campaign Asset (Composite Frame + Video/YouTube)
+  fastify.post('/assets/campaign', async (request, reply) => {
+    const { name, config } = request.body || {};
+    if (!name || !config) return reply.code(400).send({ error: 'name and config required' });
+
+    const asset = await fastify.prisma.asset.create({
+      data: {
+        name,
+        type: 'CAMPAIGN',
+        url: JSON.stringify(config),
+        thumbnailUrl: config.frameUrl || null,
+        size: BigInt(0),
+        mimeType: 'application/json',
+        orientation: 'LANDSCAPE',
+        duration: config.duration || 30, // Default to 30 or provided duration
+      },
+    });
+    return { ...asset, size: asset.size.toString() };
+  });
+
   // PATCH Asset (Update tags / name / validity dates / widget config)
   fastify.patch('/assets/:id', async (request, reply) => {
     const { id } = request.params;
@@ -487,8 +517,8 @@ async function assetRoutes(fastify, opts) {
         }
       }
 
-      if (current.type === 'MARQUEE') {
-        // MARQUEE stores config directly (flat JSON)
+      if (current.type === 'MARQUEE' || current.type === 'CAMPAIGN') {
+        // MARQUEE and CAMPAIGN store config directly (flat JSON)
         urlUpdate = { url: JSON.stringify(config || currentConfig) };
       } else {
         const merged = {

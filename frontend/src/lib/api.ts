@@ -68,10 +68,12 @@ export interface ScreenCommand {
 export interface Asset {
   id: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'MARQUEE';
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'MARQUEE' | 'CAMPAIGN';
   url: string;
   thumbnailUrl?: string;
   orientation: 'LANDSCAPE' | 'PORTRAIT';
+  width?: number | null;
+  height?: number | null;
   duration?: number;
   size: string;
   tags?: string[];

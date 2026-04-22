@@ -3,8 +3,11 @@
 # OmniScreen Backup Script
 # 備份資料庫 (PostgreSQL) 與素材檔案 (MinIO)
 
-# 設定變數
-BACKUP_DIR="/home/$USER/omniscreen_backups"
+# 設定環境變數，確保 Cron 找得到指令
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# 設定變數 (改用 $HOME 避免 Cron 環境下 $USER 為空)
+BACKUP_DIR="$HOME/omniscreen_backups"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RETENTION_DAYS=7
 

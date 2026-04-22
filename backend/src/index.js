@@ -46,6 +46,7 @@ fastify.register(require('./routes/settings'), { prefix: '/api' }); // GET is pu
 fastify.register(require('./routes/search'), { prefix: '/api', preHandler: authPreHandler }); // 搜尋功能需 Auth
 fastify.register(require('./routes/analytics'), { prefix: '/api', preHandler: authPreHandler }); // 報表需 Auth
 fastify.register(require('./routes/commands'), { prefix: '/api', preHandler: authPreHandler }); // 遠端指令需 Auth
+fastify.register(require('./routes/rss'), { prefix: '/api' }); // RSS Proxy - Public (for Player & Dashboard)
 
 // Player-facing routes: authenticated by X-Screen-Id header
 // Uses graceful mode (non-breaking). Set STRICT_PLAYER_AUTH=true in .env to enforce.

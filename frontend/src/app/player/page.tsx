@@ -428,7 +428,7 @@ function PlayerContent() {
     if (!currentItem) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB') {
+    if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB' || currentItem.type === 'MARQUEE' || currentItem.type === 'CAMPAIGN') {
       const dur = currentItem.duration;
       imageStartRef.current = Date.now();
       setImageTimeLeft(dur);

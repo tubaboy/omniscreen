@@ -76,16 +76,15 @@ function NewsTicker({
   textColor: string;
 }) {
   const [idx, setIdx] = useState(0);
-  const [animClass, setAnimClass] = useState('');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     if (!scrolling || items.length <= 1) return;
     const interval = setInterval(() => {
-      setAnimClass('marquee-exit');
+      setIsTransitioning(true);
       setTimeout(() => {
         setIdx(prev => (prev + 1) % items.length);
-        setAnimClass('marquee-enter');
-        setTimeout(() => setAnimClass(''), 400);
+        setIsTransitioning(false);
       }, 400);
     }, speed * 1000);
     return () => clearInterval(interval);
@@ -94,9 +93,11 @@ function NewsTicker({
   if (items.length === 0) return null;
 
   return (
-    <div className="relative overflow-hidden h-full flex items-center flex-1 min-w-0 px-6">
+    <div className="relative overflow-hidden h-full flex items-center w-full px-6">
       <p
-        className={`font-black truncate transition-all duration-400 ${animClass}`}
+        className={`font-black whitespace-nowrap transition-all duration-500 w-full ${
+          isTransitioning ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'
+        }`}
         style={{ 
           color: textColor,
           fontSize: 'clamp(20px, 1.8vw, 36px)',
@@ -105,24 +106,6 @@ function NewsTicker({
       >
         {items[idx] || ''}
       </p>
-      <style jsx>{`
-        .marquee-exit {
-          opacity: 0;
-          transform: translateY(-100%);
-          transition: all 0.4s ease-in;
-        }
-        .marquee-enter {
-          opacity: 0;
-          transform: translateY(100%);
-          animation: slideIn 0.4s ease-out forwards;
-        }
-        @keyframes slideIn {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

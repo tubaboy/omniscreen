@@ -3,7 +3,7 @@
 本專案使用 Linux 標準的 `cron` 工具來實現看板系統的定時開關機。
 
 ## 1. 準備腳本
-請確保以下腳本位於同一目錄下（建議路徑：`/home/tawei/Projects/gemini/omniscreen/`）：
+請確保以下腳本位於同一目錄下（建議路徑：`/home/david/project/omniscreen/`）：
 *   `start_kiosk.sh`: 負責啟動 btop 與 Chromium。
 *   `stop_kiosk.sh`: 負責關閉所有相關程式。
 
@@ -22,14 +22,14 @@ crontab -e
 
 ```cron
 # [啟動] 週一至週五 08:30
-30 8 * * 1-5 /home/tawei/Projects/gemini/omniscreen/start_kiosk.sh > /tmp/kiosk_start.log 2>&1
+30 8 * * 1-5 /home/david/project/omniscreen/start_kiosk.sh > /tmp/kiosk_start.log 2>&1
 # [啟動] 週六 09:00
-0 9 * * 6 /home/tawei/Projects/gemini/omniscreen/start_kiosk.sh > /tmp/kiosk_start.log 2>&1
+0 9 * * 6 /home/david/project/omniscreen/start_kiosk.sh > /tmp/kiosk_start.log 2>&1
 
 # [關閉] 週一至週五 16:00
-0 16 * * 1-5 /home/tawei/Projects/gemini/omniscreen/stop_kiosk.sh > /tmp/kiosk_stop.log 2>&1
+0 16 * * 1-5 /home/david/project/omniscreen/stop_kiosk.sh > /tmp/kiosk_stop.log 2>&1
 # [關閉] 週六 15:00
-0 15 * * 6 /home/tawei/Projects/gemini/omniscreen/stop_kiosk.sh > /tmp/kiosk_stop.log 2>&1
+0 15 * * 6 /home/david/project/omniscreen/stop_kiosk.sh > /tmp/kiosk_stop.log 2>&1
 ```
 
 ## 3. 注意事項

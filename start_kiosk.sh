@@ -8,7 +8,7 @@ export DISPLAY=:0
 export XAUTHORITY=$HOME/.Xauthority
 
 # --- 模式切換設定 ---
-MODE="DUAL"
+MODE="SINGLE"
 
 # --- 基礎設定 ---
 PRIMARY_WIDTH=1920
@@ -53,6 +53,12 @@ $BROWSER_CMD --new-window \
   --disable-infobars \
   --autoplay-policy=no-user-gesture-required \
   --check-for-update-interval=31536000 \
+  --ignore-gpu-blocklist \
+  --enable-gpu-rasterization \
+  --enable-zero-copy \
+  --enable-accelerated-video-decode \
+  --disable-dev-shm-usage \
+  --gpu-no-context-lost \
   "$PLAYER_URL" &
 
 echo "[$(date +%T)] 啟動完成。"

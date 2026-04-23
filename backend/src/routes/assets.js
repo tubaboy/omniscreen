@@ -539,7 +539,8 @@ async function assetRoutes(fastify, opts) {
         ...(duration !== undefined ? { duration } : {}),
         ...(validFrom !== undefined ? { validFrom: validFrom ? new Date(validFrom) : null } : {}),
         ...(validUntil !== undefined ? { validUntil: validUntil ? new Date(validUntil) : null } : {}),
-        ...(request.body.fixedDuration !== undefined ? { fixedDuration: request.body.fixedDuration } : {}),
+        ...(request.body.fixedDuration !== undefined ? { fixedDuration: request.body.fixedDuration } : 
+           (config && config.fixedDuration !== undefined ? { fixedDuration: config.fixedDuration } : {})),
         ...urlUpdate,
       },
     });

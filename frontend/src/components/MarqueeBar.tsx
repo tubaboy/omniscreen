@@ -263,21 +263,28 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
 
   // Determine content items
   let contentItems: string[] = [];
-  if (contentType === 'news' && newsHeadlines.length > 0) {
+  if (contentType === 'news' && newsHeadlines && newsHeadlines.length > 0) {
     contentItems = newsHeadlines;
-  } else if (content) {
-    contentItems = content.split('\n').filter(Boolean);
+  } else if (content && content.trim()) {
+    contentItems = content.split('\n').filter(line => line.trim() !== '');
     if (contentItems.length === 0) contentItems = [content];
+  } else if (contentType === 'weather') {
+    contentItems = ['載入天氣資訊...'];
   } else {
-    contentItems = [''];
+    contentItems = [content || ''];
   }
+
+  // Robust background logic
+  const hasBgImage = bgImageUrl && bgImageUrl.trim().length > 0;
+  const effectiveBgColor = (bgColor === 'transparent' || !bgColor) ? '#dee2ca' : bgColor;
+  const effectiveTextColor = textColor || '#000000';
 
   return (
     <div
       className="absolute inset-0 font-sans overflow-hidden flex items-stretch"
       style={{
-        backgroundColor: bgImageUrl ? 'transparent' : (bgColor === 'transparent' ? '#dee2ca' : bgColor),
-        backgroundImage: bgImageUrl ? `url(${bgImageUrl})` : undefined,
+        backgroundColor: effectiveBgColor,
+        backgroundImage: hasBgImage ? `url(${bgImageUrl})` : undefined,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
@@ -305,11 +312,11 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
 
       {/* 2. Content Area (Center) - Flexible */}
       <div 
-        className="flex-1 min-w-0 z-10"
+        className="flex-1 min-w-0 z-20"
         style={{ 
           marginLeft: title ? '-40px' : '0',
           marginRight: showClock ? '-40px' : '0',
-          backgroundColor: bgImageUrl ? 'transparent' : (bgColor === 'transparent' ? '#dee2ca' : bgColor),
+          backgroundColor: hasBgImage ? 'transparent' : effectiveBgColor,
         }}
       >
         <div className="h-full" style={{ paddingLeft: title ? '40px' : '2rem', paddingRight: showClock ? '40px' : '2rem' }}>
@@ -317,7 +324,7 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
             items={contentItems}
             speed={marqueeSpeed}
             scrolling={scrolling}
-            textColor={textColor || '#000000'}
+            textColor={effectiveTextColor}
           />
         </div>
       </div>

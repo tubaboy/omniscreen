@@ -7,7 +7,7 @@
 
 # --- 設定區 ---
 PRIMARY_WIDTH=1920            # iMac 本機螢幕寬度 (決定外接螢幕座標)
-PLAYER_URL="http://linux-mint.local:3000/player"
+PLAYER_URL="http://linux-mint.local:3000/player?id=cmo06nxhe0000qj0i0b06nh9w"
 CHECK_INTERVAL=5              # 縮短檢查時間，反應更快
 MONITOR_NAME="DisplayPort-0"         # 請確保 xrandr 輸出包含此名稱
 BROWSER_CMD="chromium"        # Linux Mint 使用 chromium

@@ -13,7 +13,7 @@ MODE="SINGLE"
 # --- 基礎設定 ---
 PRIMARY_WIDTH=1920
 MONITOR_NAME="DisplayPort-0"         # 延伸螢幕名稱
-PLAYER_URL="http://linux-mint.local:3000/player"
+PLAYER_URL="http://linux-mint.local:3000/player?id=cmo06nxhe0000qj0i0b06nh9w"
 BROWSER_CMD="chromium"
 KIOSK_PROFILE="/tmp/omniscreen_kiosk"
 

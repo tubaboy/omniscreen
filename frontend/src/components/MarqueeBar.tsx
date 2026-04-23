@@ -295,20 +295,33 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
 
       {/* 2. Content Area (Center) - Flexible */}
       <div 
-        className="flex-1 min-w-0 z-20"
+        className="flex-1 min-w-0 z-20 flex items-center"
         style={{ 
           marginLeft: title ? '-40px' : '0',
           marginRight: showClock ? '-40px' : '0',
           backgroundColor: hasBgImage ? 'transparent' : effectiveBgColor,
         }}
       >
-        <div className="h-full" style={{ paddingLeft: title ? '40px' : '2rem', paddingRight: showClock ? '40px' : '2rem' }}>
-          <NewsTicker
-            items={contentItems}
-            speed={marqueeSpeed}
-            scrolling={scrolling}
-            textColor={effectiveTextColor}
-          />
+        <div className="w-full px-10">
+          {(contentItems.length > 1 || contentType === 'news') ? (
+            <NewsTicker
+              items={contentItems}
+              speed={marqueeSpeed}
+              scrolling={scrolling}
+              textColor={effectiveTextColor}
+            />
+          ) : (
+            <p
+              className="font-black truncate w-full"
+              style={{ 
+                color: effectiveTextColor,
+                fontSize: 'clamp(20px, 1.8vw, 36px)',
+                lineHeight: '1.2'
+              }}
+            >
+              {contentItems[0] || ''}
+            </p>
+          )}
         </div>
       </div>
 

@@ -349,6 +349,13 @@ export default function MarqueeBar({ items, transition = 'FADE' }: MarqueeBarPro
   const [fadeState, setFadeState] = useState<'visible' | 'fading-out' | 'fading-in'>('visible');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Safeguard index when items change
+  useEffect(() => {
+    if (activeIdx >= items.length && items.length > 0) {
+      setActiveIdx(0);
+    }
+  }, [items.length, activeIdx]);
+
   // Multi-item rotation
   useEffect(() => {
     if (items.length <= 1) return;

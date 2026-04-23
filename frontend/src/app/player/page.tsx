@@ -301,9 +301,18 @@ function PlayerContent() {
           setIsOffline(false);
           isCurrentlyOffline = false;
 
-          // Update marquee items
-          setMarqueeItems(newMarqueeItems);
-          setMarqueeTransition(newMarqueeTransition);
+          // Update marquee items (with comparison to prevent timer reset)
+          setMarqueeItems(prev => {
+            const isSame = prev.length === newMarqueeItems.length &&
+              prev.every((item, i) => 
+                item.assetId === newMarqueeItems[i].assetId && 
+                item.duration === newMarqueeItems[i].duration &&
+                JSON.stringify(item.config) === JSON.stringify(newMarqueeItems[i].config)
+              );
+            return isSame ? prev : newMarqueeItems;
+          });
+          
+          setMarqueeTransition(prev => prev === newMarqueeTransition ? prev : newMarqueeTransition);
 
           // Safe Cache: 即使硬碟寫入失敗，也不應影響連線狀態
           try {

@@ -18,6 +18,7 @@ interface Asset {
     type: string;
     url: string;
     thumbnailUrl: string | null;
+    fixedDuration?: boolean;
 }
 
 interface DailyTrend {

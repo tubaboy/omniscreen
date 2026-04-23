@@ -77,5 +77,6 @@ export interface Asset {
   duration?: number;
   size: string;
   tags?: string[];
+  fixedDuration?: boolean;
 }
 

@@ -32,10 +32,6 @@ if [ "$MODE" = "DUAL" ]; then
     xrandr --output "$MONITOR_NAME" --auto --right-of "eDP-1" # 如果找不到 primary，嘗試常見的內建螢幕名
     
     WINDOW_POS="$PRIMARY_WIDTH,0"
-    
-    if ! pgrep -x "btop" > /dev/null; then
-        gnome-terminal --full-screen -- btop &
-    fi
 else
     WINDOW_POS="0,0"
 fi

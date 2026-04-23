@@ -30,14 +30,6 @@ if ! pgrep -x "unclutter" > /dev/null; then
   echo "[OK] 已啟動 unclutter 隱藏滑鼠..."
 fi
 
-# 啟動系統監控工具 (btop) 在本機螢幕
-if ! pgrep -x "btop" > /dev/null; then
-  # 使用 gnome-terminal 開啟 btop
-  if command -v gnome-terminal &> /dev/null; then
-    gnome-terminal --full-screen -- btop &
-  fi
-fi
-
 # --- 循環檢查邏輯 ---
 while true; do
   # 檢查外接螢幕是否已連接

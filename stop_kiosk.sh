@@ -24,13 +24,7 @@ if pgrep -f "$KIOSK_PROFILE" > /dev/null; then
     pkill -f "$KIOSK_PROFILE"
 fi
 
-# 3. 關閉系統監控工具 btop (含它所屬的終端機)
-if pgrep -x "btop" > /dev/null; then
-    echo "關閉 btop 監控..."
-    pkill -x "btop"
-fi
-
-# 4. 可選：清理臨時設定檔，確保明天啟動時是乾淨的狀態
+# 3. 清理臨時設定檔 (選做)
 # 如果你想保留瀏覽器的快取 (例如 Service Worker)，可以註解掉下一行
 # rm -rf "$KIOSK_PROFILE"
 

@@ -379,6 +379,7 @@ async function assetRoutes(fastify, opts) {
         mimeType: 'video/youtube',
         orientation: 'LANDSCAPE',
         duration: 120,
+        fixedDuration: request.body.fixedDuration !== undefined ? request.body.fixedDuration : true,
       },
     });
     return { ...asset, size: asset.size.toString() };
@@ -440,6 +441,7 @@ async function assetRoutes(fastify, opts) {
         mimeType: 'application/json',
         orientation: 'LANDSCAPE',
         duration: config.duration || 30, // Default to 30 or provided duration
+        fixedDuration: config.fixedDuration !== undefined ? config.fixedDuration : true,
       },
     });
     return { ...asset, size: asset.size.toString() };
@@ -537,6 +539,7 @@ async function assetRoutes(fastify, opts) {
         ...(duration !== undefined ? { duration } : {}),
         ...(validFrom !== undefined ? { validFrom: validFrom ? new Date(validFrom) : null } : {}),
         ...(validUntil !== undefined ? { validUntil: validUntil ? new Date(validUntil) : null } : {}),
+        ...(request.body.fixedDuration !== undefined ? { fixedDuration: request.body.fixedDuration } : {}),
         ...urlUpdate,
       },
     });

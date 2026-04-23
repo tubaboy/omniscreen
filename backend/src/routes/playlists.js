@@ -96,6 +96,7 @@ async function playlistRoutes(fastify, opts) {
           type: fixedAsset.type,
           url: isWidget ? null : fixedAsset.url,
           duration: item.duration || fixedAsset.duration || 10,
+          fixedDuration: fixedAsset.fixedDuration,
           orientation: fixedAsset.orientation,
           widgetConfig,
           transition: winningSchedule.transition,

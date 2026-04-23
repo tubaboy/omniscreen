@@ -8,14 +8,14 @@ datasource db {
 }
 
 model Screen {
-  id              String      @id @default(cuid())
+  id              String          @id @default(cuid())
   name            String
-  orientation     Orientation @default(LANDSCAPE)
-  lastSeen        DateTime    @default(now())
-  status          String      @default("OFFLINE")
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  tags            String[]    @default([])
+  orientation     Orientation     @default(LANDSCAPE)
+  lastSeen        DateTime        @default(now())
+  status          String          @default("OFFLINE")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  tags            String[]        @default([])
   latitude        Float?
   longitude       Float?
   lastSnapshotUrl String?
@@ -29,8 +29,8 @@ model Screen {
 model ScreenCommand {
   id        String   @id @default(cuid())
   screenId  String
-  type      String   // RELOAD, SNAPSHOT, CLEAR_CACHE
-  status    String   @default("PENDING") // PENDING, COMPLETED
+  type      String
+  status    String   @default("PENDING")
   createdAt DateTime @default(now())
   screen    Screen   @relation(fields: [screenId], references: [id], onDelete: Cascade)
 
@@ -39,44 +39,45 @@ model ScreenCommand {
 }
 
 model Asset {
-  id           String         @id @default(cuid())
-  name         String
-  type         AssetType
-  url          String
-  thumbnailUrl String?
-  duration     Int?           @default(10)
-  orientation  Orientation    @default(LANDSCAPE)
-  size         BigInt
-  mimeType     String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  tags         String[]       @default([])
-  validFrom    DateTime?
-  validUntil   DateTime?
-  playlists    PlaylistItem[]
-  scheduledFrames Schedule[]   @relation("ScheduleFrame")
+  id              String         @id @default(cuid())
+  name            String
+  type            AssetType
+  url             String
+  thumbnailUrl    String?
+  duration        Int?           @default(10)
+  fixedDuration   Boolean        @default(true)
+  orientation     Orientation    @default(LANDSCAPE)
+  size            BigInt
+  mimeType        String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  tags            String[]       @default([])
+  validFrom       DateTime?
+  validUntil      DateTime?
+  playlists       PlaylistItem[]
+  scheduledFrames Schedule[]     @relation("ScheduleFrame")
 }
 
 model Schedule {
-  id         String         @id @default(cuid())
-  name       String
-  screenId   String
-  startTime  String
-  endTime    String
-  daysOfWeek Int[]
-  priority   Int            @default(1)
-  isActive   Boolean        @default(true)
-  transition String         @default("FADE")
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  endDate    DateTime?
-  startDate  DateTime?
-  items      PlaylistItem[]
-  frameId    String?
-  frame      Asset?         @relation("ScheduleFrame", fields: [frameId], references: [id])
-  layoutConfig Json?
+  id            String         @id @default(cuid())
+  name          String
+  screenId      String
+  startTime     String
+  endTime       String
+  daysOfWeek    Int[]
+  priority      Int            @default(1)
+  isActive      Boolean        @default(true)
+  transition    String         @default("FADE")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  endDate       DateTime?
+  startDate     DateTime?
+  frameId       String?
+  layoutConfig  Json?
   marqueeConfig Json?
-  screen     Screen         @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  items         PlaylistItem[]
+  frame         Asset?         @relation("ScheduleFrame", fields: [frameId], references: [id])
+  screen        Screen         @relation(fields: [screenId], references: [id], onDelete: Cascade)
 }
 
 model PlaylistItem {

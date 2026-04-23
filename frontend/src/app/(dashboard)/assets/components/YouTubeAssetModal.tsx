@@ -6,8 +6,8 @@ import { X, Youtube, Link, CheckCircle, AlertCircle } from 'lucide-react';
 interface YouTubeAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, url: string) => Promise<void>;
-  initialData?: { name: string; url: string } | null;
+  onSave: (name: string, url: string, fixedDuration: boolean) => Promise<void>;
+  initialData?: { name: string; url: string; fixedDuration?: boolean } | null;
 }
 
 // Extract YouTube video ID and return a preview thumbnail URL
@@ -26,6 +26,7 @@ function parseYouTubeId(raw: string): string | null {
 export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData }: YouTubeAssetModalProps) {
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
+  const [fixedDuration, setFixedDuration] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,10 +34,12 @@ export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData
     if (isOpen) {
       setUrl(initialData?.url || '');
       setName(initialData?.name || '');
+      setFixedDuration(initialData?.fixedDuration !== undefined ? initialData.fixedDuration : true);
       setError('');
     } else {
       setUrl('');
       setName('');
+      setFixedDuration(true);
       setError('');
     }
   }, [isOpen, initialData]);
@@ -67,7 +70,7 @@ export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData
     }
     setIsSaving(true);
     try {
-      await onSave(name.trim(), url.trim());
+      await onSave(name.trim(), url.trim(), fixedDuration);
       setUrl('');
       setName('');
       setError('');
@@ -151,9 +154,31 @@ export default function YouTubeAssetModal({ isOpen, onClose, onSave, initialData
             />
           </div>
 
+          {/* Playback Mode Toggle */}
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+             <div className="flex items-center justify-between cursor-pointer" onClick={() => setFixedDuration(!fixedDuration)}>
+                <div>
+                   <p className="text-sm font-bold text-slate-700">固定播放秒數</p>
+                   <p className="text-[10px] text-slate-400 font-bold">開啟後將依照排程設定的時間強制切換素材</p>
+                </div>
+                <button
+                  type="button"
+                  className={`w-12 h-6 rounded-full transition-all relative ${fixedDuration ? 'bg-red-600' : 'bg-slate-300'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${fixedDuration ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
+             {!fixedDuration && (
+               <div className="flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-50 p-2 rounded-lg animate-in fade-in slide-in-from-top-1">
+                  <CheckCircle size={12} />
+                  目前模式：依照影片實際長度播放完畢才切換
+               </div>
+             )}
+          </div>
+
           {/* Notes */}
-          <p className="text-[11px] text-slate-400 font-medium bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
-            💡 一般影片會播放至結束後自動切換。若為<strong className="text-red-500">直播影片</strong>，系統會自動偵測並依排程中設定的秒數切換。
+          <p className="text-[11px] text-slate-400 font-medium leading-relaxed italic px-1">
+            💡 一般影片建議關閉「固定播放秒數」以完整播放。若為<strong className="text-red-500 ml-1">直播影片</strong>，系統會強制依照設定秒數切換。
           </p>
 
           {/* Error */}

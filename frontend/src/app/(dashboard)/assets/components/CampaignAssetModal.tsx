@@ -19,6 +19,7 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
   const [videoRect, setVideoRect] = useState({ top: 10, left: 10, width: 80, height: 80 });
   const [isSaving, setIsSaving] = useState(false);
   const [duration, setDuration] = useState(30);
+  const [fixedDuration, setFixedDuration] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
           if (cAsset) setContentAssetId(cAsset.id);
           setVideoRect(config.videoRect || { top: 10, left: 10, width: 80, height: 80 });
           setDuration(config.duration || initialData.duration || 30);
+          setFixedDuration(config.fixedDuration !== undefined ? config.fixedDuration : (initialData.fixedDuration !== undefined ? initialData.fixedDuration : true));
         } catch (e) {
           console.error('Failed to parse campaign config', e);
         }
@@ -41,6 +43,7 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
         setFrameAssetId('');
         setContentAssetId('');
         setVideoRect({ top: 10, left: 10, width: 80, height: 80 });
+        setFixedDuration(true);
       }
       setError('');
     }
@@ -63,7 +66,8 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
       youtubeId: contentAsset.type === 'YOUTUBE' ? contentAsset.url : null,
       contentType: contentAsset.type, // VIDEO or YOUTUBE
       videoRect,
-      duration: Number(duration)
+      duration: Number(duration),
+      fixedDuration
     };
 
     try {
@@ -180,15 +184,39 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
               </select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">播放時長 (秒)</label>
-              <input
-                type="number"
-                value={duration}
-                onChange={e => setDuration(Number(e.target.value))}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white transition-all"
-                min="1"
-              />
+            <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+               <div className="flex items-center justify-between cursor-pointer" onClick={() => setFixedDuration(!fixedDuration)}>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">固定播放秒數</label>
+                    <p className="text-[9px] text-slate-400 font-bold leading-tight">開啟後將依照下方秒數強制切換</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`w-10 h-5 rounded-full transition-all relative ${fixedDuration ? 'bg-amber-600' : 'bg-slate-300'}`}
+                  >
+                    <span className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow transition-all ${fixedDuration ? 'left-6' : 'left-1'}`} />
+                  </button>
+               </div>
+               
+               {fixedDuration && (
+                 <div className="space-y-2 pt-2 border-t border-slate-200 animate-in fade-in slide-in-from-top-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">播放時長 (秒)</label>
+                    <input
+                      type="number"
+                      value={duration}
+                      onChange={e => setDuration(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-400 transition-all"
+                      min="1"
+                    />
+                 </div>
+               )}
+
+               {!fixedDuration && (
+                 <div className="flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-50 p-2 rounded-lg animate-in fade-in slide-in-from-top-1">
+                    <CheckCircle size={12} />
+                    模式：依照內容影片長度播放
+                 </div>
+               )}
             </div>
 
             <div className="space-y-4 pt-4 border-t border-slate-100">

@@ -29,6 +29,7 @@ interface PlaylistItem {
   transition?: string;
   frameUrl?: string;
   layoutConfig?: LayoutConfig | null;
+  fixedDuration?: boolean;
 }
 
 function PlayerContent() {
@@ -428,7 +429,11 @@ function PlayerContent() {
     if (!currentItem) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    if (currentItem.type === 'IMAGE' || currentItem.type === 'WIDGET' || currentItem.type === 'WEB' || currentItem.type === 'MARQUEE' || currentItem.type === 'CAMPAIGN') {
+    // Check if we should use a fixed duration timer
+    const isFixedType = ['IMAGE', 'WIDGET', 'WEB', 'MARQUEE', 'CAMPAIGN', 'YOUTUBE'].includes(currentItem.type);
+    const shouldSkipTimer = (currentItem.type === 'CAMPAIGN' || currentItem.type === 'YOUTUBE') && currentItem.fixedDuration === false;
+
+    if (isFixedType && !shouldSkipTimer) {
       const dur = currentItem.duration;
       imageStartRef.current = Date.now();
       setImageTimeLeft(dur);
@@ -497,6 +502,9 @@ function PlayerContent() {
         }, 200);
 
         // Fallback timer to force transition (guarantees playlist progression)
+        // Bypass if fixedDuration is OFF (allow indefinite live playback)
+        if (currentItem.fixedDuration === false) return;
+
         if (playlist.length > 1) {
           ytTimerRef.current = setTimeout(() => {
             transitionTo((currentIndex + 1) % playlist.length);

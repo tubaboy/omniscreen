@@ -304,13 +304,13 @@ export default function AssetLibrary() {
     setShowYoutubeModal(true);
   };
 
-  const handleSaveYouTube = async (name: string, url: string) => {
+  const handleSaveYouTube = async (name: string, url: string, fixedDuration: boolean) => {
     if (editingYouTubeAsset) {
-      await api.patch(`/assets/${editingYouTubeAsset.id}`, { name, url });
+      await api.patch(`/assets/${editingYouTubeAsset.id}`, { name, url, fixedDuration });
       setEditingYouTubeAsset(null);
       fetchAssets();
     } else {
-      await api.post('/assets/youtube', { name, url });
+      await api.post('/assets/youtube', { name, url, fixedDuration });
       fetchAssets();
     }
   };
@@ -1857,7 +1857,7 @@ export default function AssetLibrary() {
           setEditingYouTubeAsset(null);
         }}
         onSave={handleSaveYouTube}
-        initialData={editingYouTubeAsset ? { name: editingYouTubeAsset.name, url: editingYouTubeAsset.url } : null}
+        initialData={editingYouTubeAsset ? { name: editingYouTubeAsset.name, url: editingYouTubeAsset.url, fixedDuration: editingYouTubeAsset.fixedDuration } : null}
       />
 
       {/* ──── Preview Modal ──── */}

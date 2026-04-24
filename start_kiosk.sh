@@ -51,10 +51,19 @@ $BROWSER_CMD --new-window \
   --check-for-update-interval=31536000 \
   --ignore-gpu-blocklist \
   --enable-gpu-rasterization \
+  --force-gpu-rasterization \
   --enable-zero-copy \
   --enable-accelerated-video-decode \
   --disable-dev-shm-usage \
   --gpu-no-context-lost \
+  --disable-features=UseSkiaRenderer \
+  --enable-native-gpu-memory-buffers \
+  --enable-gpu-memory-buffer-video-frames \
+  --disk-cache-size=1 \
+  --media-cache-size=1 \
+  --disable-background-timer-throttling \
+  --disable-renderer-backgrounding \
+  --use-gl=egl \
   "$PLAYER_URL" &
 
 echo "[$(date +%T)] 啟動完成。"

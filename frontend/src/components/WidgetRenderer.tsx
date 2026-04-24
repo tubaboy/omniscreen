@@ -172,7 +172,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
       try {
         const encodedRssUrl = encodeURIComponent(newsUrl);
         const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
-        const res = await fetch(`${apiUrl}/rss/proxy?url=${encodedRssUrl}`);
+        const res = await fetch(`${apiUrl}/rss/proxy?url=${encodedRssUrl}`, { cache: 'no-store' });
         const data = await res.json();
         if (data.status === 'ok' && data.items) {
           // Decode simple HTML entities and join titles
@@ -216,6 +216,11 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
     }, stayTime * 1000);
     return () => clearInterval(timer);
   }, [scrolling, contentItems.length, stayTime]);
+
+  // Reset index when content items change (e.g. switching between news and manual)
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [contentItems.length]);
 
   const marqueePrefix = (contentType === 'news' && title && title !== '即時公告' && title !== '焦點公告') ? `${title}：` : '';
 

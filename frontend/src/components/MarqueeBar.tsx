@@ -78,6 +78,11 @@ function NewsTicker({
   const [idx, setIdx] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // Reset index when items change to avoid blank display if old index is out of bounds
+  useEffect(() => {
+    setIdx(0);
+  }, [items]);
+
   useEffect(() => {
     if (!scrolling || items.length <= 1) return;
     const interval = setInterval(() => {
@@ -415,7 +420,7 @@ export default function MarqueeBar({ items, transition = 'FADE' }: MarqueeBarPro
           transition: transition === 'NONE' ? 'none' : 'all 0.4s ease-in-out',
         }}
       >
-        <SingleMarquee config={currentItem.config} />
+        <SingleMarquee key={activeIdx} config={currentItem.config} />
       </div>
     </div>
   );

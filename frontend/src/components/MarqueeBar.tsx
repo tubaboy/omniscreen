@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 export interface MarqueeItemConfig {
@@ -81,7 +81,7 @@ function NewsTicker({
   // Reset index when items change to avoid blank display if old index is out of bounds
   useEffect(() => {
     setIdx(0);
-  }, [items]);
+  }, [items.length]);
 
   useEffect(() => {
     if (!scrolling || items.length <= 1) return;
@@ -249,18 +249,17 @@ function SingleMarquee({ config }: { config: MarqueeItemConfig }) {
 
   const newsHeadlines = useNewsFeed(contentType === 'news' ? newsUrl : undefined);
 
-  // Determine content items
-  let contentItems: string[] = [];
-  if (contentType === 'news' && newsHeadlines && newsHeadlines.length > 0) {
-    contentItems = newsHeadlines;
-  } else if (content && content.trim()) {
-    contentItems = content.split('\n').filter(line => line.trim() !== '');
-    if (contentItems.length === 0) contentItems = [content];
-  } else if (contentType === 'weather') {
-    contentItems = ['載入天氣資訊...'];
-  } else {
-    contentItems = [content || ''];
-  }
+  const contentItems = useMemo(() => {
+    if (contentType === 'news' && newsHeadlines && newsHeadlines.length > 0) {
+      return newsHeadlines;
+    } else if (content && content.trim()) {
+      const items = content.split('\n').filter(line => line.trim() !== '');
+      return items.length > 0 ? items : [content];
+    } else if (contentType === 'weather') {
+      return ['載入天氣資訊...'];
+    }
+    return [content || ''];
+  }, [contentType, newsHeadlines, content]);
 
   // Robust background logic
   const hasBgImage = bgImageUrl && bgImageUrl.trim().length > 0;

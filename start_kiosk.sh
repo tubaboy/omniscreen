@@ -36,7 +36,12 @@ else
     WINDOW_POS="0,0"
 fi
 
-# 3. 啟動 Chromium
+# 3. 確保音訊開啟 (解除靜音並設為 100%)
+pactl set-sink-mute @DEFAULT_SINK@ false 2>/dev/null
+pactl set-sink-volume @DEFAULT_SINK@ 100% 2>/dev/null
+amixer sset 'Master' unmute 100% 2>/dev/null
+
+# 4. 啟動 Chromium
 pkill -f "$KIOSK_PROFILE"
 sleep 1
 
@@ -48,6 +53,8 @@ $BROWSER_CMD --new-window \
   --noerrdialogs \
   --disable-infobars \
   --autoplay-policy=no-user-gesture-required \
+  --disable-features=PreloadMediaEngagementData,AutoplayIgnoreWebAudio,UseSkiaRenderer \
+  --disable-audio-output-resampler \
   --check-for-update-interval=31536000 \
   --ignore-gpu-blocklist \
   --enable-gpu-rasterization \

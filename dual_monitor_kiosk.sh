@@ -40,6 +40,11 @@ while true; do
     if ! pgrep -f "$KIOSK_PROFILE" > /dev/null; then
       echo "[$(date +%T)] 偵測到 $MONITOR_NAME，正在啟動播放器..."
       
+      # 確保系統音量開啟
+      pactl set-sink-mute @DEFAULT_SINK@ false 2>/dev/null
+      pactl set-sink-volume @DEFAULT_SINK@ 100% 2>/dev/null
+      amixer sset 'Master' unmute 100% 2>/dev/null
+
       # 啟動命令 (加入 --incognito 以避免 Service Worker 緩存過期問題)
       $BROWSER_CMD --new-window \
         --window-position=$PRIMARY_WIDTH,0 \
@@ -49,6 +54,8 @@ while true; do
         --noerrdialogs \
         --disable-infobars \
         --autoplay-policy=no-user-gesture-required \
+        --disable-features=PreloadMediaEngagementData,AutoplayIgnoreWebAudio,UseSkiaRenderer \
+        --disable-audio-output-resampler \
         --check-for-update-interval=31536000 \
         --ignore-gpu-blocklist \
         --enable-gpu-rasterization \

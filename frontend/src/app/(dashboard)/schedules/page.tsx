@@ -22,6 +22,7 @@ import {
   Film,
   BarChart3,
   Maximize2,
+  Megaphone,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -1192,6 +1193,13 @@ export default function ScheduleManagement() {
                       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border border-purple-100 rounded-full text-[10px] font-black text-purple-600">
                         <ImageIcon size={11} />
                         套用外框: {schedule.frame.name}
+                      </div>
+                    )}
+                    {/* Marquee Badge */}
+                    {(schedule as any).marqueeConfig?.enabled && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-full text-[10px] font-black text-amber-700">
+                        <Megaphone size={11} />
+                        套用跑馬燈: {(schedule as any).marqueeConfig.items?.length || 0} 項內容
                       </div>
                     )}
                     {/* Date Range Badge */}

@@ -21,6 +21,7 @@ import {
   ImageIcon,
   Film,
   BarChart3,
+  Maximize2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {

@@ -233,6 +233,94 @@ export default function ScheduleManagement() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const [isLayoutDragging, setIsLayoutDragging] = useState(false);
+  const [isLayoutResizing, setIsLayoutResizing] = useState(false);
+  const [layoutDragStart, setLayoutDragStart] = useState({ x: 0, y: 0, top: 0, left: 0, width: 0, height: 0 });
+
+  const handleLayoutMouseDown = (e: React.MouseEvent, type: 'move' | 'resize') => {
+    e.preventDefault();
+    const container = document.getElementById('layout-preview-container')?.getBoundingClientRect();
+    if (!container) return;
+    
+    if (type === 'move') setIsLayoutDragging(true);
+    else setIsLayoutResizing(true);
+    
+    const current = layoutConfig || { top: 0, left: 0, width: 100, height: 100 };
+    setLayoutDragStart({
+      x: e.clientX,
+      y: e.clientY,
+      top: current.top,
+      left: current.left,
+      width: current.width,
+      height: current.height
+    });
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isLayoutDragging && !isLayoutResizing) return;
+      const container = document.getElementById('layout-preview-container')?.getBoundingClientRect();
+      if (!container) return;
+
+      const dx = ((e.clientX - layoutDragStart.x) / container.width) * 100;
+      const dy = ((e.clientY - layoutDragStart.y) / container.height) * 100;
+
+      if (isLayoutDragging) {
+        setLayoutConfig(prev => {
+          const current = prev || { top: 0, left: 0, width: 100, height: 100 };
+          return {
+            ...current,
+            left: Math.max(0, Math.min(100 - current.width, layoutDragStart.left + dx)),
+            top: Math.max(0, Math.min(100 - current.height, layoutDragStart.top + dy))
+          };
+        });
+      } else if (isLayoutResizing) {
+        setLayoutConfig(prev => {
+          const current = prev || { top: 0, left: 0, width: 100, height: 100 };
+          return {
+            ...current,
+            width: Math.max(1, Math.min(100 - current.left, layoutDragStart.width + dx)),
+            height: Math.max(1, Math.min(100 - current.top, layoutDragStart.height + dy))
+          };
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsLayoutDragging(false);
+      setIsLayoutResizing(false);
+    };
+
+    if (isLayoutDragging || isLayoutResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isLayoutDragging, isLayoutResizing, layoutDragStart]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || !frameId) return;
+      const step = e.shiftKey ? 5 : 1;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        setLayoutConfig(prev => {
+          const current = prev || { top: 0, left: 0, width: 100, height: 100 };
+          if (e.key === 'ArrowUp') return { ...current, top: Math.max(0, current.top - step) };
+          if (e.key === 'ArrowDown') return { ...current, top: Math.min(100 - current.height, current.top + step) };
+          if (e.key === 'ArrowLeft') return { ...current, left: Math.max(0, current.left - step) };
+          if (e.key === 'ArrowRight') return { ...current, left: Math.min(100 - current.width, current.left + step) };
+          return current;
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [frameId]);
+
   const activeItem = activeId ? queue.find(q => q.queueKey === activeId) ?? null : null;
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -671,56 +759,41 @@ export default function ScheduleManagement() {
 
                 {/* Layout Config (Only show if frameId is selected) */}
                 {frameId && (
-                  <div className="border border-slate-200 bg-white rounded-2xl p-4 mt-2 space-y-4">
+                  <div className="border border-slate-200 bg-white rounded-3xl p-6 mt-4 space-y-6 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        內容播放區域裁切 (可搭配外框去背範圍)
-                      </label>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest">
+                          內容播放區域 (裁切與對位)
+                        </label>
+                        <p className="text-[9px] text-slate-400 font-bold">可直接拖拽預覽框內的藍色區域</p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setLayoutConfig({ top: 0, left: 0, width: 100, height: 100 })}
-                        className="text-[9px] font-black text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-2 py-1 rounded shadow-sm"
+                        className="text-[9px] font-black text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg shadow-sm"
                       >
-                        重置為滿版
+                        重置滿版
                       </button>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                      {/* Sliders */}
-                      <div className="space-y-4">
-                        {[
-                          { key: 'top', label: '上邊界 (Top)', color: 'text-rose-500', accent: 'accent-rose-500' },
-                          { key: 'left', label: '左邊界 (Left)', color: 'text-indigo-500', accent: 'accent-indigo-500' },
-                          { key: 'width', label: '寬度 (Width)', color: 'text-emerald-500', accent: 'accent-emerald-500' },
-                          { key: 'height', label: '高度 (Height)', color: 'text-amber-500', accent: 'accent-amber-500' },
-                        ].map(slider => (
-                          <div key={slider.key}>
-                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1.5">
-                              <span className={slider.color}>{slider.label}</span>
-                              <span className="text-slate-500">{layoutConfig?.[slider.key as keyof LayoutConfig] ?? (slider.key.includes('width') || slider.key.includes('height') ? 100 : 0)}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={layoutConfig?.[slider.key as keyof LayoutConfig] ?? (slider.key.includes('width') || slider.key.includes('height') ? 100 : 0)}
-                              onChange={e => handleLayoutChange(slider.key as keyof LayoutConfig, parseInt(e.target.value))}
-                              className={`w-full ${slider.accent}`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Preview Box */}
+                    <div className="space-y-6">
+                      {/* Preview Box - Full width in the form */}
                       <div className="flex justify-center items-center">
-                        <div className="w-full aspect-video bg-slate-100 rounded-xl relative overflow-hidden border border-slate-200">
+                        <div 
+                          id="layout-preview-container"
+                          className="w-full aspect-video bg-slate-900 rounded-[20px] relative overflow-hidden border border-slate-200 shadow-inner group"
+                        >
+                          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 0)', backgroundSize: '20px 20px' }}></div>
+                          
                           <img 
                             src={assets.find(a => a.id === frameId)?.url} 
-                            className="w-full h-full object-cover opacity-85"
+                            className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none opacity-90"
                             alt="Frame Preview"
                           />
+                          
                           <div 
-                            className="absolute bg-blue-500/40 border-2 border-blue-500 flex items-center justify-center backdrop-blur-[1px] transition-all duration-75 shadow-lg shadow-blue-500/20"
+                            onMouseDown={(e) => handleLayoutMouseDown(e, 'move')}
+                            className={`absolute bg-blue-500/40 border-2 border-blue-400 flex items-center justify-center backdrop-blur-[1px] transition-all duration-75 shadow-xl cursor-move z-0 group/box ${isLayoutDragging ? 'scale-[1.01] ring-4 ring-blue-400/20' : ''}`}
                             style={{
                               top: `${layoutConfig?.top ?? 0}%`,
                               left: `${layoutConfig?.left ?? 0}%`,
@@ -728,10 +801,56 @@ export default function ScheduleManagement() {
                               height: `${layoutConfig?.height ?? 100}%`
                             }}
                           >
-                            <span className="text-[10px] font-black text-white bg-blue-600/80 px-2 py-0.5 rounded shadow">內容區</span>
+                            <span className="text-[10px] font-black text-white bg-blue-600/80 px-2 py-0.5 rounded shadow pointer-events-none">播放區域</span>
+                            
+                            {/* Resize Handle */}
+                            <div 
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                handleLayoutMouseDown(e, 'resize');
+                              }}
+                              className="absolute bottom-0 right-0 w-6 h-6 bg-blue-500 cursor-nwse-resize flex items-center justify-center rounded-tl-lg hover:bg-blue-600 transition-colors group-hover/box:opacity-100 opacity-0"
+                            >
+                              <Maximize2 size={12} className="text-white" />
+                            </div>
+
+                            {/* Info Tooltip */}
+                            {(isLayoutDragging || isLayoutResizing) && (
+                              <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-[9px] px-2 py-1 rounded font-mono whitespace-nowrap z-50">
+                                {layoutConfig?.left.toFixed(0)}%, {layoutConfig?.top.toFixed(0)}% | {layoutConfig?.width.toFixed(0)}%x{layoutConfig?.height.toFixed(0)}%
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
+
+                      {/* Sliders in a compact grid */}
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 border-t border-slate-100">
+                        {[
+                          { key: 'top', label: '上邊界 (T)', color: 'text-rose-500', accent: 'accent-rose-500' },
+                          { key: 'left', label: '左邊界 (L)', color: 'text-indigo-500', accent: 'accent-indigo-500' },
+                          { key: 'width', label: '寬度 (W)', color: 'text-emerald-500', accent: 'accent-emerald-500' },
+                          { key: 'height', label: '高度 (H)', color: 'text-amber-500', accent: 'accent-amber-500' },
+                        ].map(slider => (
+                          <div key={slider.key} className="space-y-1">
+                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
+                              <span className={slider.color}>{slider.label}</span>
+                              <span className="text-slate-400">{(layoutConfig as any)?.[slider.key] ?? (slider.key.includes('width') || slider.key.includes('height') ? 100 : 0)}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={(layoutConfig as any)?.[slider.key] ?? (slider.key.includes('width') || slider.key.includes('height') ? 100 : 0)}
+                              onChange={e => handleLayoutChange(slider.key as keyof LayoutConfig, parseInt(e.target.value))}
+                              className={`w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer ${slider.accent}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-bold italic text-center">
+                        * 提示：選中設定框後可使用方向鍵微調位置
+                      </p>
                     </div>
                   </div>
                 )}

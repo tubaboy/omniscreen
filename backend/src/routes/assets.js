@@ -37,10 +37,16 @@ const probeMetadata = (filePath) => {
           actualWidth = height;
           actualHeight = width;
         }
+        let calculatedOrientation = actualWidth >= actualHeight ? 'LANDSCAPE' : 'PORTRAIT';
+        if (actualWidth > 0 && actualHeight > 0) {
+          const ratio = actualWidth / actualHeight;
+          if (Math.abs(ratio - 4/3) < 0.05) calculatedOrientation = 'LANDSCAPE_43';
+          else if (Math.abs(ratio - 3/4) < 0.05) calculatedOrientation = 'PORTRAIT_34';
+        }
         resolve({
           width: actualWidth,
           height: actualHeight,
-          orientation: actualWidth >= actualHeight ? 'LANDSCAPE' : 'PORTRAIT'
+          orientation: calculatedOrientation
         });
       } else {
         resolve({ width: 0, height: 0, orientation: 'LANDSCAPE' });

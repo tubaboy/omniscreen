@@ -86,10 +86,10 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
 
       // 等比例調整邏輯
       if (contentAsset && (key === 'width' || key === 'height')) {
-        // 取得素材原始比例，預設 16:9 或 9:16
+        // 取得素材原始比例，預設 16:9 或 9:16 或 4:3 或 3:4
         const assetRatio = (contentAsset.width && contentAsset.height) 
           ? (contentAsset.width / contentAsset.height)
-          : (contentAsset.orientation === 'PORTRAIT' ? 9/16 : 16/9);
+          : (contentAsset.orientation === 'PORTRAIT' ? 9/16 : (contentAsset.orientation === 'PORTRAIT_34' ? 3/4 : (contentAsset.orientation === 'LANDSCAPE_43' ? 4/3 : 16/9)));
         
         // 預覽容器固定為 16:9
         const frameRatio = 16/9;
@@ -235,6 +235,18 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
                     const percentRatio = ratio / frameRatio;
                     setVideoRect(prev => ({ ...prev, height: Math.round(prev.width / percentRatio) }));
                   }} className="text-[9px] font-black bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded text-slate-600 transition-colors tracking-tight">9:16</button>
+                  <button onClick={() => {
+                    const ratio = 4/3;
+                    const frameRatio = 16/9;
+                    const percentRatio = ratio / frameRatio;
+                    setVideoRect(prev => ({ ...prev, height: Math.round(prev.width / percentRatio) }));
+                  }} className="text-[9px] font-black bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded text-slate-600 transition-colors tracking-tight">4:3</button>
+                  <button onClick={() => {
+                    const ratio = 3/4;
+                    const frameRatio = 16/9;
+                    const percentRatio = ratio / frameRatio;
+                    setVideoRect(prev => ({ ...prev, height: Math.round(prev.width / percentRatio) }));
+                  }} className="text-[9px] font-black bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded text-slate-600 transition-colors tracking-tight">3:4</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

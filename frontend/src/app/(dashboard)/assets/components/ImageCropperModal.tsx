@@ -74,6 +74,8 @@ export default function ImageCropperModal({
     { label: '自由', value: undefined, icon: Crop },
     { label: '橫幅 (16:9)', value: 16 / 9, icon: Monitor },
     { label: '直式 (9:16)', value: 9 / 16, icon: Smartphone },
+    { label: '橫幅 (4:3)', value: 4 / 3, icon: Monitor },
+    { label: '直式 (3:4)', value: 3 / 4, icon: Smartphone },
     { label: '方形 (1:1)', value: 1, icon: Square },
   ];
 

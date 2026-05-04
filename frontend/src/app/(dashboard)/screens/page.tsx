@@ -15,7 +15,7 @@ type ViewMode = 'grid' | 'list' | 'map';
 export default function ScreenManagement() {
   const [screens, setScreens] = useState<Screen[]>([]);
   const [name, setName] = useState('');
-  const [orientation, setOrientation] = useState<'LANDSCAPE' | 'PORTRAIT'>('LANDSCAPE');
+  const [orientation, setOrientation] = useState<'LANDSCAPE' | 'PORTRAIT' | 'LANDSCAPE_43' | 'PORTRAIT_34'>('LANDSCAPE');
   const [isAdding, setIsAdding] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -252,6 +252,20 @@ export default function ScreenManagement() {
                     label="9:16 縱向"
                   />
                 </div>
+                <div className="flex space-x-4 mt-4">
+                  <OrientationButton
+                    active={orientation === 'LANDSCAPE_43'}
+                    onClick={() => setOrientation('LANDSCAPE_43')}
+                    icon={<Monitor size={24} />}
+                    label="4:3 橫向"
+                  />
+                  <OrientationButton
+                    active={orientation === 'PORTRAIT_34'}
+                    onClick={() => setOrientation('PORTRAIT_34')}
+                    icon={<Smartphone size={24} />}
+                    label="3:4 縱向"
+                  />
+                </div>
               </div>
             </div>
             <div className="flex justify-end space-x-4 pt-4 border-t border-slate-100">
@@ -316,7 +330,7 @@ export default function ScreenManagement() {
                   </button>
 
                   <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${!isOffline(screen.lastSeen) ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-300'}`}>
-                    {screen.orientation === 'LANDSCAPE' ? <Monitor size={28} /> : <Smartphone size={28} />}
+                    {screen.orientation.startsWith('LANDSCAPE') ? <Monitor size={28} /> : <Smartphone size={28} />}
                   </div>
                   <div>
                     <div className="flex items-center gap-2.5 mb-1">
@@ -338,7 +352,7 @@ export default function ScreenManagement() {
                     <div className="flex items-center gap-2 text-xs text-slate-400 font-bold">
                       <span className="font-mono text-[10px] text-slate-400">{screen.id.slice(0, 12)}…</span>
                       <span>·</span>
-                      <span>{screen.orientation === 'LANDSCAPE' ? '橫向' : '縱向'}</span>
+                      <span>{screen.orientation.startsWith('LANDSCAPE') ? '橫向' : '縱向'}</span>
                       {screen.tags?.length > 0 && (
                         <>
                           <span>·</span>
@@ -425,7 +439,7 @@ export default function ScreenManagement() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${!isOffline(screen.lastSeen) ? 'bg-green-50 text-green-500' : 'bg-slate-50 text-slate-300'}`}>
-                        {screen.orientation === 'LANDSCAPE' ? <Monitor size={16} /> : <Smartphone size={16} />}
+                        {screen.orientation.startsWith('LANDSCAPE') ? <Monitor size={16} /> : <Smartphone size={16} />}
                       </div>
                       <span className="font-bold text-slate-800">{screen.name}</span>
                     </div>
@@ -439,7 +453,7 @@ export default function ScreenManagement() {
                     </span>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    <span className="text-xs font-bold text-slate-500">{screen.orientation === 'LANDSCAPE' ? '橫向' : '縱向'}</span>
+                    <span className="text-xs font-bold text-slate-500">{screen.orientation.startsWith('LANDSCAPE') ? '橫向' : '縱向'}</span>
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
                     <div className="flex gap-1 flex-wrap">

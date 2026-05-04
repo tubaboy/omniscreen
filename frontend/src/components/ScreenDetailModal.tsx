@@ -87,7 +87,7 @@ export default function ScreenDetailModal({ screen, onClose, onUpdate }: ScreenD
         <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-100 rounded-t-[2rem] px-8 py-5 flex items-center justify-between z-10">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${!offline ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
-              {screen.orientation === 'LANDSCAPE' ? <Monitor size={24} /> : <Smartphone size={24} />}
+              {screen.orientation.startsWith('LANDSCAPE') ? <Monitor size={24} /> : <Smartphone size={24} />}
             </div>
             <div>
               <div className="flex items-center gap-2">

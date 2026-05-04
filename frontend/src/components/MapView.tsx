@@ -138,7 +138,7 @@ export default function MapView({ screens, onScreenClick }: MapViewProps) {
               <strong style="font-size: 14px;">${screen.name}</strong>
             </div>
             <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
-              ${screen.orientation === 'LANDSCAPE' ? '橫向' : '縱向'} · ${offline ? '離線' : '在線'}
+              ${screen.orientation.startsWith('LANDSCAPE') ? '橫向' : '縱向'} · ${offline ? '離線' : '在線'}
             </div>
             ${screen.lastSnapshotUrl ? `
               <div style="border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 6px;">

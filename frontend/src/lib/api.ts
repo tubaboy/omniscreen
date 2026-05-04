@@ -45,7 +45,7 @@ export function fixUrl(url: string | null | undefined): string | null | undefine
 export interface Screen {
   id: string;
   name: string;
-  orientation: 'LANDSCAPE' | 'PORTRAIT';
+  orientation: 'LANDSCAPE' | 'PORTRAIT' | 'LANDSCAPE_43' | 'PORTRAIT_34';
   status: 'ONLINE' | 'OFFLINE';
   lastSeen: string;
   tags: string[];
@@ -71,7 +71,7 @@ export interface Asset {
   type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'MARQUEE' | 'CAMPAIGN';
   url: string;
   thumbnailUrl?: string;
-  orientation: 'LANDSCAPE' | 'PORTRAIT';
+  orientation: 'LANDSCAPE' | 'PORTRAIT' | 'LANDSCAPE_43' | 'PORTRAIT_34';
   width?: number | null;
   height?: number | null;
   duration?: number;

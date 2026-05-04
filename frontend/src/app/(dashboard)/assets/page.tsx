@@ -1283,7 +1283,7 @@ export default function AssetLibrary() {
 
                 <div className="absolute top-4 right-4">
                   <span className="px-3 py-1 bg-[#1A5336]/80 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest rounded-lg border border-white/10">
-                    {asset.orientation === 'PORTRAIT' ? '9:16' : '16:9'}
+                    {asset.orientation === 'PORTRAIT' ? '9:16' : (asset.orientation === 'PORTRAIT_34' ? '3:4' : (asset.orientation === 'LANDSCAPE_43' ? '4:3' : '16:9'))}
                   </span>
                 </div>
 
@@ -1469,7 +1469,7 @@ export default function AssetLibrary() {
                   Type: {previewAsset.type}
                 </span>
                 <span className="text-white/60 text-[10px] font-black uppercase tracking-widest border-r border-white/10 pr-6">
-                  Ratio: {previewAsset.orientation === 'PORTRAIT' ? '9:16' : '16:9'}
+                  Ratio: {previewAsset.orientation === 'PORTRAIT' ? '9:16' : (previewAsset.orientation === 'PORTRAIT_34' ? '3:4' : (previewAsset.orientation === 'LANDSCAPE_43' ? '4:3' : '16:9'))}
                 </span>
                 <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">
                   Size: {(parseInt(previewAsset.size || '0') / 1024 / 1024).toFixed(2)} MB

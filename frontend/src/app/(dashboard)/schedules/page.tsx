@@ -134,7 +134,7 @@ function SortableQueueItem({
         <div className="absolute bottom-0 left-0 flex items-center bg-black/60 text-white text-[8px] font-black px-1 rounded-tr-md backdrop-blur-sm pointer-events-none gap-1">
           <span>{asset.type === 'VIDEO' ? 'VIDEO' : 'IMAGE'}</span>
           <span className="opacity-50">|</span>
-          <span>{asset.orientation === 'PORTRAIT' ? '9:16' : '16:9'}</span>
+          <span>{asset.orientation === 'PORTRAIT' ? '9:16' : (asset.orientation === 'PORTRAIT_34' ? '3:4' : (asset.orientation === 'LANDSCAPE_43' ? '4:3' : '16:9'))}</span>
         </div>
       </div>
 
@@ -189,7 +189,7 @@ function DragGhostCard({ asset }: { asset: Asset | null }) {
         <div className="absolute bottom-0 left-0 flex items-center bg-black/60 text-white text-[8px] font-black px-1 rounded-tr-md backdrop-blur-sm pointer-events-none gap-1">
           <span>{asset.type === 'VIDEO' ? 'VIDEO' : 'IMAGE'}</span>
           <span className="opacity-50">|</span>
-          <span>{asset.orientation === 'PORTRAIT' ? '9:16' : '16:9'}</span>
+          <span>{asset.orientation === 'PORTRAIT' ? '9:16' : (asset.orientation === 'PORTRAIT_34' ? '3:4' : (asset.orientation === 'LANDSCAPE_43' ? '4:3' : '16:9'))}</span>
         </div>
       </div>
       <p className="text-xs font-bold text-slate-700 truncate max-w-[120px]">{asset.name}</p>
@@ -439,6 +439,8 @@ export default function ScheduleManagement() {
   const selectedScreenData = screens.find(s => s.id === selectedScreenIds[0]);
   const filteredAssets = assets.filter(asset => {
     if (!selectedScreenData) return true;
+    if (selectedScreenData.orientation.startsWith('LANDSCAPE')) return asset.orientation.startsWith('LANDSCAPE');
+    if (selectedScreenData.orientation.startsWith('PORTRAIT')) return asset.orientation.startsWith('PORTRAIT');
     return asset.orientation === selectedScreenData.orientation;
   });
 
@@ -926,7 +928,7 @@ export default function ScheduleManagement() {
                         <div className="absolute bottom-1 left-1 flex items-center bg-black/60 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md backdrop-blur-sm z-10 pointer-events-none gap-1">
                           <span>{asset.type === 'VIDEO' ? 'VIDEO' : 'IMAGE'}</span>
                           <span className="opacity-50">|</span>
-                          <span>{asset.orientation === 'PORTRAIT' ? '9:16' : '16:9'}</span>
+                          <span>{asset.orientation === 'PORTRAIT' ? '9:16' : (asset.orientation === 'PORTRAIT_34' ? '3:4' : (asset.orientation === 'LANDSCAPE_43' ? '4:3' : '16:9'))}</span>
                         </div>
                         {inQueue && (
                           <div className="absolute top-1.5 right-1.5 bg-blue-500 text-white rounded-full min-w-[22px] h-[22px] flex items-center justify-center shadow-lg z-10 pointer-events-none px-1">

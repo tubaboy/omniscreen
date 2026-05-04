@@ -136,6 +136,8 @@ model DailyPlaybackStats {
 enum Orientation {
   LANDSCAPE
   PORTRAIT
+  LANDSCAPE_43
+  PORTRAIT_34
 }
 
 enum AssetType {

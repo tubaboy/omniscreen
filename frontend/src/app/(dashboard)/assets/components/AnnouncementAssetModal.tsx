@@ -71,7 +71,7 @@ export default function AnnouncementAssetModal({ isOpen, onClose, onSaved, exist
       const res = await api.post('/assets/upload-raw', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setBgImageUrl(fixUrl(res.data.url));
+      setBgImageUrl(fixUrl(res.data.url) || null);
     } catch (err) {
       console.error('Upload failed:', err);
       alert('上傳失敗');

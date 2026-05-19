@@ -143,8 +143,8 @@ function SortableQueueItem({
       {/* Name */}
       <p className="flex-1 text-xs font-bold text-slate-700 truncate">{asset.name}</p>
 
-      {/* Duration Input for Images, Widgets, Web and YouTube Assets */}
-      {(asset.type === 'IMAGE' || asset.type === 'WIDGET' || asset.type === 'WEB' || asset.type === 'YOUTUBE') && (
+      {/* Duration Input for Images, Widgets, Web, YouTube and Announcement Assets */}
+      {(asset.type === 'IMAGE' || asset.type === 'WIDGET' || asset.type === 'WEB' || asset.type === 'YOUTUBE' || asset.type === 'ANNOUNCEMENT') && (
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <Clock size={12} className="text-slate-400" />
           <input

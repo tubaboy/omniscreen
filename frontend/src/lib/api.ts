@@ -68,7 +68,7 @@ export interface ScreenCommand {
 export interface Asset {
   id: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'MARQUEE' | 'CAMPAIGN';
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'MARQUEE' | 'CAMPAIGN' | 'ANNOUNCEMENT';
   url: string;
   thumbnailUrl?: string;
   orientation: 'LANDSCAPE' | 'PORTRAIT' | 'LANDSCAPE_43' | 'PORTRAIT_34';

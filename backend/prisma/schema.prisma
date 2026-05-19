@@ -148,4 +148,5 @@ enum AssetType {
   YOUTUBE
   MARQUEE
   CAMPAIGN
+  ANNOUNCEMENT
 }

@@ -453,6 +453,27 @@ async function assetRoutes(fastify, opts) {
     return { ...asset, size: asset.size.toString() };
   });
 
+  // POST Announcement Asset
+  fastify.post('/assets/announcement', async (request, reply) => {
+    const { name, config } = request.body || {};
+    if (!name || !config) return reply.code(400).send({ error: 'name and config required' });
+
+    const asset = await fastify.prisma.asset.create({
+      data: {
+        name,
+        type: 'ANNOUNCEMENT',
+        url: JSON.stringify(config),
+        thumbnailUrl: config.bgImageUrl || null,
+        size: BigInt(0),
+        mimeType: 'application/json',
+        orientation: 'LANDSCAPE',
+        duration: config.duration || 30, // Default duration
+        fixedDuration: true,
+      },
+    });
+    return { ...asset, size: asset.size.toString() };
+  });
+
   // PATCH Asset (Update tags / name / validity dates / widget config)
   fastify.patch('/assets/:id', async (request, reply) => {
     const { id } = request.params;
@@ -525,9 +546,12 @@ async function assetRoutes(fastify, opts) {
         }
       }
 
-      if (current.type === 'MARQUEE' || current.type === 'CAMPAIGN') {
-        // MARQUEE and CAMPAIGN store config directly (flat JSON)
+      if (current.type === 'MARQUEE' || current.type === 'CAMPAIGN' || current.type === 'ANNOUNCEMENT') {
+        // Store config directly (flat JSON)
         urlUpdate = { url: JSON.stringify(config || currentConfig) };
+        if (current.type === 'ANNOUNCEMENT' && config?.bgImageUrl) {
+          urlUpdate.thumbnailUrl = config.bgImageUrl;
+        }
       } else {
         const merged = {
           widgetType: widgetType ?? currentConfig.widgetType,

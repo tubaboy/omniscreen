@@ -169,8 +169,10 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
   }, [isDragging, isResizing, dragStart]);
 
   useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.activeElement?.tagName === 'INPUT') return;
+      const tagName = document.activeElement?.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
       const step = e.shiftKey ? 5 : 1;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
@@ -185,7 +187,7 @@ export default function CampaignAssetModal({ isOpen, onClose, onSave, initialDat
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

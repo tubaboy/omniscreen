@@ -22,7 +22,7 @@ interface PlaylistItem {
   assetId?: string;
   scheduleId?: string;
   name: string;
-  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'CAMPAIGN' | 'MARQUEE';
+  type: 'IMAGE' | 'VIDEO' | 'WIDGET' | 'WEB' | 'YOUTUBE' | 'CAMPAIGN' | 'MARQUEE' | 'ANNOUNCEMENT';
   url: string | null;
   duration: number;
   widgetConfig?: WidgetConfig;
@@ -439,7 +439,7 @@ function PlayerContent() {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     // Check if we should use a fixed duration timer
-    const isFixedType = ['IMAGE', 'WIDGET', 'WEB', 'MARQUEE', 'CAMPAIGN', 'YOUTUBE'].includes(currentItem.type);
+    const isFixedType = ['IMAGE', 'WIDGET', 'WEB', 'MARQUEE', 'CAMPAIGN', 'YOUTUBE', 'ANNOUNCEMENT'].includes(currentItem.type);
     const shouldSkipTimer = (currentItem.type === 'CAMPAIGN' || currentItem.type === 'YOUTUBE') && currentItem.fixedDuration === false;
 
     if (isFixedType && !shouldSkipTimer) {
@@ -749,6 +749,45 @@ function PlayerContent() {
                   )}
                 </div>
                 <img src={config.frameUrl} className="absolute inset-0 w-full h-full object-cover pointer-events-none" alt="Campaign Frame" />
+              </div>
+            );
+          })()
+        ) : currentItem.type === 'ANNOUNCEMENT' ? (
+          (() => {
+            let config: any = {};
+            try { config = JSON.parse(currentItem.url || '{}'); } catch {}
+            return (
+              <div 
+                className="relative w-full h-full flex items-center justify-center overflow-hidden"
+                style={{ backgroundColor: config.bgColor || '#000000' }}
+              >
+                {/* Make sure the container has aspect-video for relative scaling to work correctly */}
+                <div className="relative w-full aspect-video flex items-center justify-center overflow-hidden" style={{ containerType: 'size' }}>
+                  {config.bgImageUrl && (
+                    <img src={config.bgImageUrl} className="absolute inset-0 w-full h-full object-contain pointer-events-none" alt="Background" />
+                  )}
+                  {config.texts?.map((text: any) => (
+                    <div
+                      key={text.id}
+                      className="absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{
+                        left: `${text.x}%`,
+                        top: `${text.y}%`,
+                        fontSize: `${text.fontSize}cqh`,
+                        color: text.color,
+                        fontWeight: text.fontWeight,
+                        textAlign: text.textAlign,
+                        whiteSpace: 'pre-wrap',
+                        textShadow: '0px 2px 4px rgba(0,0,0,0.5)',
+                        WebkitTextStroke: text.fontWeight === '900' ? '0.04em currentColor' : undefined,
+                        fontFamily: '"PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
+                        lineHeight: 1.2
+                      }}
+                    >
+                      {text.content}
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })()

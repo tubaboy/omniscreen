@@ -7,6 +7,7 @@ import { Upload, Trash2, FileVideo, Plus, Image as ImageIcon, Search, X, Play, E
 import ImageCropperModal from './components/ImageCropperModal';
 import YouTubeAssetModal from './components/YouTubeAssetModal';
 import CampaignAssetModal from './components/CampaignAssetModal';
+import AnnouncementAssetModal from './components/AnnouncementAssetModal';
 import WidgetRenderer, { WidgetConfig } from '@/components/WidgetRenderer';
 
 type WidgetType = 'DASHBOARD';
@@ -273,6 +274,15 @@ export default function AssetLibrary() {
   // Campaign Modal State
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Asset | null>(null);
+
+  // Announcement Modal State
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Asset | null>(null);
+
+  const openEditAnnouncementModal = (asset: any) => {
+    setEditingAnnouncement(asset);
+    setShowAnnouncementModal(true);
+  };
 
   const [showMarqueeModal, setShowMarqueeModal] = useState(false);
   const [editingMarquee, setEditingMarquee] = useState<any | null>(null);
@@ -691,6 +701,15 @@ export default function AssetLibrary() {
               <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
               <Layers size={18} />
               建立活動托播
+            </button>
+            {/* Announcement Button */}
+            <button
+              onClick={() => { setEditingAnnouncement(null); setShowAnnouncementModal(true); }}
+              className="group relative inline-flex items-center gap-2 px-6 py-4 bg-teal-600 text-white rounded-2xl font-bold shadow-xl shadow-teal-900/20 hover:bg-teal-700 transition-all overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+              <Edit3 size={18} />
+              建立公告模板
             </button>
             {/* URL Button */}
             <button
@@ -1234,6 +1253,54 @@ export default function AssetLibrary() {
                   <p className="text-xs font-bold text-slate-800 truncate mb-1">{asset.name}</p>
                   <div className="flex justify-between items-center">
                     <span className="text-[9px] text-indigo-500 font-bold">複合素材</span>
+                    {((asset as any).usageCount || 0) > 0 ? (
+                      <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold shrink-0">🔗 {((asset as any).usageCount || 0)}</span>
+                    ) : (
+                      <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">👻 閒置</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // ─── Announcement Card ──────────────────────────────────────
+          if (asset.type === 'ANNOUNCEMENT') {
+            return (
+              <div key={asset.id} onClick={() => { if (selectedAssetIds.size > 0) toggleSelection(asset.id); }} className={`break-inside-avoid group border rounded-[28px] overflow-hidden hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col ${selectedAssetIds.size > 0 ? 'cursor-pointer' : ''} ${selectedAssetIds.has(asset.id) ? 'border-teal-600 bg-teal-50 shadow-2xl shadow-teal-500/20 ring-4 ring-teal-500/20' : 'bg-slate-100 border-slate-200 hover:shadow-2xl hover:shadow-teal-500/30'}`}>
+                
+                {/* Checkbox Overlay */}
+                <div className={`absolute top-4 left-4 z-40 transition-all ${selectedAssetIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div onClick={(e) => { e.stopPropagation(); toggleSelection(asset.id); }} className={`w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer transition-all border-2 ${selectedAssetIds.has(asset.id) ? 'bg-teal-600 border-teal-600' : 'bg-black/20 backdrop-blur-md border-white/50 hover:border-white'}`}>
+                    {selectedAssetIds.has(asset.id) && <CheckSquare size={16} className="text-white" />}
+                  </div>
+                </div>
+
+                <div className="relative overflow-hidden aspect-video bg-slate-900 flex items-center justify-center cursor-pointer">
+                  {asset.thumbnailUrl ? (
+                    <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  ) : (
+                    <Edit3 size={48} className="text-teal-400" />
+                  )}
+                  <div className="absolute inset-0 bg-teal-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4">
+                    <button onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }} className="bg-teal-500/20 backdrop-blur-md text-teal-100 px-4 py-2 rounded-xl border border-teal-500/20 hover:bg-teal-500/40 transition-all font-bold text-xs flex items-center gap-2">
+                      <Eye size={14} /> 預覽
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); openEditAnnouncementModal(asset); }} className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 hover:bg-white/30 transition-all font-bold text-xs flex items-center gap-2">
+                      <Edit3 size={14} /> 編輯
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteAsset(asset.id); }} className="bg-red-500/20 backdrop-blur-md text-red-200 px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/40 transition-all font-bold text-xs flex items-center gap-2">
+                      <Trash2 size={14} /> 刪除
+                    </button>
+                  </div>
+                  <div className="absolute top-3 right-3 z-20">
+                    <span className="px-2 py-0.5 bg-teal-600 text-white text-[8px] font-black uppercase rounded shadow-lg">公告模板</span>
+                  </div>
+                </div>
+                <div className="p-3 bg-white border-t border-slate-100">
+                  <p className="text-xs font-bold text-slate-800 truncate mb-1">{asset.name}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] text-teal-500 font-bold">互動素材</span>
                     {((asset as any).usageCount || 0) > 0 ? (
                       <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold shrink-0">🔗 {((asset as any).usageCount || 0)}</span>
                     ) : (
@@ -2278,6 +2345,13 @@ export default function AssetLibrary() {
         onSave={handleSaveCampaign}
         initialData={editingCampaign}
         availableAssets={assets}
+      />
+
+      <AnnouncementAssetModal
+        isOpen={showAnnouncementModal}
+        onClose={() => setShowAnnouncementModal(false)}
+        onSaved={fetchAssets}
+        existingAsset={editingAnnouncement}
       />
     </div>
   );

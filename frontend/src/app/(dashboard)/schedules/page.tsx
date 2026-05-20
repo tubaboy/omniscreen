@@ -228,6 +228,10 @@ export default function ScheduleManagement() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isActive, setIsActive] = useState(true);
 
+  // Search and Filter states
+  const [assetSearchQuery, setAssetSearchQuery] = useState('');
+  const [selectedAssetType, setSelectedAssetType] = useState<string>('ALL');
+
   // DnD state
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
@@ -525,13 +529,37 @@ export default function ScheduleManagement() {
     return acc;
   }, {});
 
-  // Filter assets based on first selected screen orientation
+  // Filter assets based on first selected screen orientation, type, and search query
   const selectedScreenData = screens.find(s => s.id === selectedScreenIds[0]);
   const filteredAssets = assets.filter(asset => {
-    if (!selectedScreenData) return true;
-    if (selectedScreenData.orientation.startsWith('LANDSCAPE')) return asset.orientation.startsWith('LANDSCAPE');
-    if (selectedScreenData.orientation.startsWith('PORTRAIT')) return asset.orientation.startsWith('PORTRAIT');
-    return asset.orientation === selectedScreenData.orientation;
+    // 1. Orientation filter
+    if (selectedScreenData) {
+      const isLandscape = selectedScreenData.orientation.startsWith('LANDSCAPE');
+      const isPortrait = selectedScreenData.orientation.startsWith('PORTRAIT');
+      if (isLandscape && !asset.orientation.startsWith('LANDSCAPE')) return false;
+      if (isPortrait && !asset.orientation.startsWith('PORTRAIT')) return false;
+      if (!isLandscape && !isPortrait && asset.orientation !== selectedScreenData.orientation) return false;
+    }
+
+    // 2. Type filter
+    if (selectedAssetType !== 'ALL') {
+      if (selectedAssetType === 'WIDGET') {
+        // Group WIDGET, WEB, and YOUTUBE together as dynamic widgets
+        if (asset.type !== 'WIDGET' && asset.type !== 'WEB' && asset.type !== 'YOUTUBE') return false;
+      } else {
+        if (asset.type !== selectedAssetType) return false;
+      }
+    }
+
+    // 3. Search query filter
+    if (assetSearchQuery.trim()) {
+      const q = assetSearchQuery.toLowerCase();
+      const nameMatch = asset.name.toLowerCase().includes(q);
+      const tagMatch = asset.tags?.some(t => t.toLowerCase().includes(q)) ?? false;
+      if (!nameMatch && !tagMatch) return false;
+    }
+
+    return true;
   });
 
   return (
@@ -1014,62 +1042,128 @@ export default function ScheduleManagement() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             {/* Asset Library */}
             <div className="space-y-4">
-              <h2 className="text-base font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                <ImageIcon size={16} className="text-blue-500" />
-                素材庫
-              </h2>
-              <div className="grid grid-cols-3 gap-3 max-h-[480px] overflow-y-auto pr-1 rounded-xl">
-                {filteredAssets.map(asset => {
-                  const count = assetQueueCount[asset.id] || 0;
-                  const inQueue = count > 0;
-                  const thumb =
-                    asset.thumbnailUrl || (asset.type === 'IMAGE' ? asset.url : null);
-                  return (
-                    <button
-                      key={asset.id}
-                      onClick={() => addAssetToQueue(asset)}
-                      className={`group relative bg-white border rounded-[18px] overflow-hidden transition-all text-left ${inQueue
-                        ? 'ring-4 ring-blue-500/30 border-blue-500'
-                        : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
-                        }`}
-                    >
-                      <div className="aspect-video relative bg-slate-100">
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt={asset.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-slate-800 text-white opacity-40">
-                            <Film size={18} />
-                          </div>
-                        )}
-                        {/* Orientation Badge */}
-                        <div className="absolute bottom-1 left-1 flex items-center bg-black/60 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md backdrop-blur-sm z-10 pointer-events-none gap-1">
-                          <span>{asset.type === 'VIDEO' ? 'VIDEO' : 'IMAGE'}</span>
-                          <span className="opacity-50">|</span>
-                          <span>{asset.orientation === 'PORTRAIT' ? '9:16' : (asset.orientation === 'PORTRAIT_34' ? '3:4' : (asset.orientation === 'LANDSCAPE_43' ? '4:3' : '16:9'))}</span>
-                        </div>
-                        {inQueue && (
-                          <div className="absolute top-1.5 right-1.5 bg-blue-500 text-white rounded-full min-w-[22px] h-[22px] flex items-center justify-center shadow-lg z-10 pointer-events-none px-1">
-                            <span className="text-[10px] font-black leading-none">{count}</span>
-                          </div>
-                        )}
-                        {/* hover overlay: always + (add again) */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
-                          <span className="text-white text-xl font-black">+</span>
-                        </div>
-                      </div>
-                      <div className="p-2">
-                        <p className="text-[9px] font-bold text-slate-600 truncate">
-                          {asset.name}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                  <ImageIcon size={16} className="text-blue-500" />
+                  素材庫
+                </h2>
+                {filteredAssets.length !== assets.length && (
+                  <span className="text-[9px] font-black text-blue-500 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                    已篩選 {filteredAssets.length} / {assets.length}
+                  </span>
+                )}
               </div>
+
+              {/* Search input with premium styling */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="搜尋素材名稱或標籤..."
+                  value={assetSearchQuery}
+                  onChange={e => setAssetSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-2xl text-xs font-bold transition-all outline-none"
+                />
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                </div>
+                {assetSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setAssetSearchQuery('')}
+                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Horizontal Scrollable Category Filter */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-none">
+                {[
+                  { id: 'ALL', label: '全部' },
+                  { id: 'IMAGE', label: '圖片' },
+                  { id: 'VIDEO', label: '影片' },
+                  { id: 'WIDGET', label: '小工具' },
+                  { id: 'CAMPAIGN', label: '托播' },
+                  { id: 'ANNOUNCEMENT', label: '公告' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedAssetType(tab.id)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider transition-all flex-shrink-0
+                      ${selectedAssetType === tab.id
+                        ? 'bg-blue-500 text-white shadow-sm shadow-blue-200'
+                        : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/50'
+                      }
+                    `}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {filteredAssets.length === 0 ? (
+                <div className="min-h-[240px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-300 gap-2">
+                  <ImageIcon size={28} />
+                  <p className="text-xs font-bold">沒有符合條件的素材</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 max-h-[480px] overflow-y-auto pr-1 rounded-xl">
+                  {filteredAssets.map(asset => {
+                    const count = assetQueueCount[asset.id] || 0;
+                    const inQueue = count > 0;
+                    const thumb =
+                      asset.thumbnailUrl || (asset.type === 'IMAGE' ? asset.url : null);
+                    return (
+                      <button
+                        key={asset.id}
+                        onClick={() => addAssetToQueue(asset)}
+                        className={`group relative bg-white border rounded-[18px] overflow-hidden transition-all text-left ${inQueue
+                          ? 'ring-4 ring-blue-500/30 border-blue-500'
+                          : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+                          }`}
+                      >
+                        <div className="aspect-video relative bg-slate-100">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt={asset.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-slate-800 text-white opacity-40">
+                              <Film size={18} />
+                            </div>
+                          )}
+                          {/* Orientation Badge */}
+                          <div className="absolute bottom-1 left-1 flex items-center bg-black/60 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md backdrop-blur-sm z-10 pointer-events-none gap-1">
+                            <span>{asset.type === 'VIDEO' ? 'VIDEO' : 'IMAGE'}</span>
+                            <span className="opacity-50">|</span>
+                            <span>{asset.orientation === 'PORTRAIT' ? '9:16' : (asset.orientation === 'PORTRAIT_34' ? '3:4' : (asset.orientation === 'LANDSCAPE_43' ? '4:3' : '16:9'))}</span>
+                          </div>
+                          {inQueue && (
+                            <div className="absolute top-1.5 right-1.5 bg-blue-500 text-white rounded-full min-w-[22px] h-[22px] flex items-center justify-center shadow-lg z-10 pointer-events-none px-1">
+                              <span className="text-[10px] font-black leading-none">{count}</span>
+                            </div>
+                          )}
+                          {/* hover overlay: always + (add again) */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                            <span className="text-white text-xl font-black">+</span>
+                          </div>
+                        </div>
+                        <div className="p-2">
+                          <p className="text-[9px] font-bold text-slate-600 truncate">
+                            {asset.name}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Play Queue */}

@@ -48,6 +48,7 @@ fastify.register(require('./routes/analytics'), { prefix: '/api', preHandler: au
 fastify.register(require('./routes/commands'), { prefix: '/api', preHandler: authPreHandler }); // 遠端指令需 Auth
 fastify.register(require('./routes/rss'), { prefix: '/api' }); // RSS Proxy - Public (for Player & Dashboard)
 
+
 // Player-facing routes: authenticated by X-Screen-Id header
 // Uses graceful mode (non-breaking). Set STRICT_PLAYER_AUTH=true in .env to enforce.
 fastify.register((playerApp, opts, done) => {

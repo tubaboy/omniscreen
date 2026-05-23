@@ -457,6 +457,7 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
   );
 }
 
+
 // ─── Main WidgetRenderer ──────────────────────────────────────────────────
 
 export default function WidgetRenderer({ widgetConfig }: { widgetConfig: WidgetConfig }) {

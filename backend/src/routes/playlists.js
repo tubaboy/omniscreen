@@ -131,7 +131,12 @@ async function playlistRoutes(fastify, opts) {
         });
     }
 
-    return { items, marqueeItems, marqueeTransition: mc?.transitionEffect || 'FADE' };
+    const screenConfig = await fastify.prisma.screen.findUnique({
+      where: { id: screenId },
+      select: { spotifyEnable: true, spotifyUrl: true }
+    });
+
+    return { items, marqueeItems, marqueeTransition: mc?.transitionEffect || 'FADE', screen: screenConfig };
   });
 
   // POST Schedule (Create - single screen)

@@ -20,6 +20,8 @@ export default function ScreenDetailModal({ screen, onClose, onUpdate }: ScreenD
   const [editTags, setEditTags] = useState(screen.tags?.join(', ') || '');
   const [editLat, setEditLat] = useState(screen.latitude?.toString() || '');
   const [editLng, setEditLng] = useState(screen.longitude?.toString() || '');
+  const [editSpotifyEnable, setEditSpotifyEnable] = useState(screen.spotifyEnable || false);
+  const [editSpotifyUrl, setEditSpotifyUrl] = useState(screen.spotifyUrl || '');
   const [saving, setSaving] = useState(false);
 
   const isOffline = (lastSeen: string) => {
@@ -65,6 +67,8 @@ export default function ScreenDetailModal({ screen, onClose, onUpdate }: ScreenD
         tags,
         latitude: editLat ? parseFloat(editLat) : null,
         longitude: editLng ? parseFloat(editLng) : null,
+        spotifyEnable: editSpotifyEnable,
+        spotifyUrl: editSpotifyUrl,
       });
       onUpdate();
     } catch (err) {
@@ -284,6 +288,36 @@ export default function ScreenDetailModal({ screen, onClose, onUpdate }: ScreenD
                   />
                 </div>
               </div>
+
+              {/* Spotify Notifications Setting */}
+              <div className="pt-4 border-t border-slate-100 mt-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-black text-slate-800 flex items-center gap-2">🎧 Spotify 換歌通知疊加</label>
+                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">開啟後，於看板右上角嵌入官方 nowplaying.site 播放小卡</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditSpotifyEnable(prev => !prev)}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all ${editSpotifyEnable ? 'bg-[#1A5336]' : 'bg-slate-200'}`}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${editSpotifyEnable ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                {editSpotifyEnable && (
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 animate-in slide-in-from-top-2 duration-300">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">nowplaying.site 專屬網址</label>
+                    <input
+                      type="text"
+                      value={editSpotifyUrl}
+                      onChange={e => setEditSpotifyUrl(e.target.value)}
+                      placeholder="https://widget.nowplaying.site/..."
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-50 focus:border-[#1A5336] transition-all font-bold text-xs outline-none shadow-sm"
+                    />
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={saveChanges}
                 disabled={saving}

@@ -23,7 +23,7 @@ async function screenRoutes(fastify, opts) {
   // POST Screen (Create)
   fastify.post('/screens', async (request, reply) => {
     try {
-      const { name, orientation, tags, latitude, longitude } = request.body || {};
+      const { name, orientation, tags, latitude, longitude, spotifyEnable, spotifyUrl } = request.body || {};
       if (!name) return reply.code(400).send({ error: 'Name is required' });
 
       return await fastify.prisma.screen.create({
@@ -33,6 +33,8 @@ async function screenRoutes(fastify, opts) {
           ...(tags ? { tags } : {}),
           ...(latitude !== undefined ? { latitude } : {}),
           ...(longitude !== undefined ? { longitude } : {}),
+          ...(spotifyEnable !== undefined ? { spotifyEnable } : {}),
+          ...(spotifyUrl !== undefined ? { spotifyUrl } : {}),
         },
       });
     } catch (err) {
@@ -45,7 +47,7 @@ async function screenRoutes(fastify, opts) {
   fastify.patch('/screens/:id', async (request, reply) => {
     try {
       const { id } = request.params;
-      const { name, orientation, tags, latitude, longitude, customBgUrl } = request.body || {};
+      const { name, orientation, tags, latitude, longitude, customBgUrl, spotifyEnable, spotifyUrl } = request.body || {};
 
       const data = {};
       if (name !== undefined) data.name = name;
@@ -54,6 +56,8 @@ async function screenRoutes(fastify, opts) {
       if (latitude !== undefined) data.latitude = latitude;
       if (longitude !== undefined) data.longitude = longitude;
       if (customBgUrl !== undefined) data.customBgUrl = customBgUrl;
+      if (spotifyEnable !== undefined) data.spotifyEnable = spotifyEnable;
+      if (spotifyUrl !== undefined) data.spotifyUrl = spotifyUrl;
 
       const screen = await fastify.prisma.screen.update({
         where: { id },

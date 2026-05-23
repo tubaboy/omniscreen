@@ -8,7 +8,9 @@ async function settingsRoutes(fastify) {
             player_poll_interval: '10',
             offline_timeout_min: '2',
             player_hud: 'true',
-            auto_snapshot_interval: '30'
+            auto_snapshot_interval: '30',
+            player_default_muted: 'false',
+            system_theme: 'dark'
         };
 
         const settingsMap = { ...defaultSettings };

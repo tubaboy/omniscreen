@@ -33,6 +33,7 @@ interface WidgetFormState {
   newsUrl: string;
   marqueeSpeed: number;
   showBottomTicker: boolean;
+
 }
 
 interface MarqueeFormState {
@@ -365,9 +366,11 @@ export default function AssetLibrary() {
 
   const openEditWidgetModal = (asset: any) => {
     let config: any = {};
+    let widgetType: WidgetType = 'DASHBOARD';
     try {
       const parsed = JSON.parse(asset.url);
       config = parsed.config || {};
+      widgetType = parsed.widgetType || 'DASHBOARD';
     } catch (e) {
       console.error('Failed to parse widget config', e);
     }
@@ -375,7 +378,7 @@ export default function AssetLibrary() {
     setEditingWidget(asset);
     setWidgetForm({
       name: asset.name,
-      widgetType: 'DASHBOARD', // Assuming all widgets are DASHBOARD for now
+      widgetType: widgetType,
       bgImageUrl: config.bgImageUrl ?? null,
       showDate: config.showDate ?? true,
       showSeconds: config.showSeconds ?? true,
@@ -399,27 +402,29 @@ export default function AssetLibrary() {
     if (!widgetForm.name.trim()) return alert('請輸入名稱');
     setWidgetSaving(true); // Use the existing widgetSaving state
 
+    const config = {
+      bgImageUrl: widgetForm.bgImageUrl,
+      showDate: widgetForm.showDate,
+      showSeconds: widgetForm.showSeconds,
+      lat: parseFloat(widgetForm.lat as string), // Ensure lat/lon are numbers
+      lon: parseFloat(widgetForm.lon as string),
+      city: widgetForm.city,
+      title: widgetForm.title,
+      content: widgetForm.content,
+      scrolling: widgetForm.scrolling,
+      bgColor: widgetForm.bgColor,
+      textColor: widgetForm.textColor,
+      contentType: widgetForm.contentType,
+      newsUrl: widgetForm.newsUrl,
+      marqueeSpeed: widgetForm.marqueeSpeed,
+      showBottomTicker: widgetForm.showBottomTicker,
+    };
+
     const payload = {
       name: widgetForm.name,
       widgetType: widgetForm.widgetType,
       duration: 120, // Default fallback, scheduling will override
-      config: {
-        bgImageUrl: widgetForm.bgImageUrl,
-        showDate: widgetForm.showDate,
-        showSeconds: widgetForm.showSeconds,
-        lat: parseFloat(widgetForm.lat as string), // Ensure lat/lon are numbers
-        lon: parseFloat(widgetForm.lon as string),
-        city: widgetForm.city,
-        title: widgetForm.title,
-        content: widgetForm.content,
-        scrolling: widgetForm.scrolling,
-        bgColor: widgetForm.bgColor,
-        textColor: widgetForm.textColor,
-        contentType: widgetForm.contentType,
-        newsUrl: widgetForm.newsUrl,
-        marqueeSpeed: widgetForm.marqueeSpeed,
-        showBottomTicker: widgetForm.showBottomTicker,
-      }
+      config
     };
 
     try {
@@ -1575,6 +1580,8 @@ export default function AssetLibrary() {
 
             {/* Scrollable Form Content */}
             <div className="p-8 overflow-y-auto w-full space-y-8 bg-slate-50/50">
+
+
               {/* Basic Section */}
               <section className="space-y-4">
                 <h3 className="text-sm font-black text-slate-800 border-b pb-2">📂 基本設定</h3>
@@ -1589,50 +1596,52 @@ export default function AssetLibrary() {
                       placeholder="例如：大廳首頁看板"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1 justify-between">
-                      <span>自訂背景圖片</span>
-                      {widgetForm.bgImageUrl && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">已套用</span>}
-                    </label>
-                    <div className="flex gap-2 min-w-0">
-                      {widgetForm.bgImageUrl ? (
-                        <div className="relative w-full h-[50px] rounded-xl overflow-hidden border border-slate-200 group">
-                           <img src={widgetForm.bgImageUrl} className="w-full h-full object-cover" />
-                           <button type="button" onClick={() => setWidgetForm(f => ({...f, bgImageUrl: null}))} className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center font-bold opacity-0 group-hover:opacity-100 transition-all text-sm rounded-xl">清除並恢復預設</button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = async (e: any) => {
-                              const f = e.target.files?.[0];
-                              if (!f) return;
-                              try {
-                                // Compress image before upload
-                                const processedFile = await compressImage(f);
-                                const formData = new FormData();
-                                formData.append('file', processedFile, f.name);
-                                const res = await api.post('/assets/upload-raw', formData, {
-                                  headers: { 'Content-Type': 'multipart/form-data' }
-                                });
-                                setWidgetForm(prev => ({...prev, bgImageUrl: res.data.url}));
-                              } catch (err) {
-                                alert('圖片上傳失敗，請稍後再試');
-                              }
-                            };
-                            input.click();
-                          }}
-                          className="w-full h-[50px] flex items-center justify-center gap-2 px-4 bg-slate-100 border border-slate-200 border-dashed rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-all hover:border-slate-300 shadow-sm"
-                        >
-                          <ImageIcon size={16} />
-                          上傳專屬桌布 (選填)
-                        </button>
-                      )}
+                  {widgetForm.widgetType === 'DASHBOARD' && (
+                    <div>
+                      <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1 justify-between">
+                        <span>自訂背景圖片</span>
+                        {widgetForm.bgImageUrl && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">已套用</span>}
+                      </label>
+                      <div className="flex gap-2 min-w-0">
+                        {widgetForm.bgImageUrl ? (
+                          <div className="relative w-full h-[50px] rounded-xl overflow-hidden border border-slate-200 group">
+                             <img src={widgetForm.bgImageUrl} className="w-full h-full object-cover" />
+                             <button type="button" onClick={() => setWidgetForm(f => ({...f, bgImageUrl: null}))} className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center font-bold opacity-0 group-hover:opacity-100 transition-all text-sm rounded-xl">清除並恢復預設</button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = 'image/*';
+                              input.onchange = async (e: any) => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                try {
+                                  // Compress image before upload
+                                  const processedFile = await compressImage(f);
+                                  const formData = new FormData();
+                                  formData.append('file', processedFile, f.name);
+                                  const res = await api.post('/assets/upload-raw', formData, {
+                                    headers: { 'Content-Type': 'multipart/form-data' }
+                                  });
+                                  setWidgetForm(prev => ({...prev, bgImageUrl: res.data.url}));
+                                } catch (err) {
+                                  alert('圖片上傳失敗，請稍後再試');
+                                }
+                              };
+                              input.click();
+                            }}
+                            className="w-full h-[50px] flex items-center justify-center gap-2 px-4 bg-slate-100 border border-slate-200 border-dashed rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-all hover:border-slate-300 shadow-sm"
+                          >
+                            <ImageIcon size={16} />
+                            上傳專屬桌布 (選填)
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </section>
 
@@ -1838,6 +1847,7 @@ export default function AssetLibrary() {
                   </div>
                 </div>
               </section>
+
 
             </div>
 

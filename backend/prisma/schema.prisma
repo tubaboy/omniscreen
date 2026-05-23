@@ -22,6 +22,8 @@ model Screen {
   snapshotAt      DateTime?
   systemInfo      Json?
   customBgUrl     String?
+  spotifyEnable   Boolean         @default(false)
+  spotifyUrl      String?
   schedules       Schedule[]
   commands        ScreenCommand[]
 }

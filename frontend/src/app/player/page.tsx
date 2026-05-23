@@ -70,6 +70,10 @@ function PlayerContent() {
   const ytLiveStartRef = useRef<number>(0);
   const ytLiveTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Spotify Per-Screen Notification state
+  const [spotifyEnable, setSpotifyEnable] = useState(false);
+  const [spotifyUrl, setSpotifyUrl] = useState('');
+
   // Initialize mute state from localStorage (user override takes priority)
   useEffect(() => {
     const savedMute = localStorage.getItem(`player_${screenId}_muted`);
@@ -285,6 +289,12 @@ function PlayerContent() {
             const serverMuted = setRes.value.data.player_default_muted !== 'false';
             setIsMuted(serverMuted);
           }
+
+          console.log('[Player Settings] Loaded:', {
+            pollInterval: setRes.value.data.player_poll_interval,
+            offlineTimeout: setRes.value.data.offline_timeout_min
+          });
+
           networkSuccess = true;
           setIsOffline(false);
           isCurrentlyOffline = false;
@@ -300,6 +310,12 @@ function PlayerContent() {
           networkSuccess = true;
           setIsOffline(false);
           isCurrentlyOffline = false;
+
+          // Load screen-specific Spotify settings
+          if (responseData.screen) {
+            setSpotifyEnable(responseData.screen.spotifyEnable || false);
+            setSpotifyUrl(responseData.screen.spotifyUrl || '');
+          }
 
           // Update marquee items (with comparison to prevent timer reset)
           setMarqueeItems(prev => {
@@ -473,6 +489,8 @@ function PlayerContent() {
       };
     }
   }, [currentIndex, playlist, fadeState, singleItemTick, logPlayback, transitionTo]);
+
+
 
   // Cleanup YT live timer on index change
   useEffect(() => {
@@ -833,6 +851,35 @@ function PlayerContent() {
       {/* Marquee Bar Overlay */}
       {marqueeItems.length > 0 && (
         <MarqueeBar items={marqueeItems} transition={marqueeTransition} />
+      )}
+
+      {/* Per-Screen Spotify Notification Overlay */}
+      {spotifyEnable && spotifyUrl && (
+        <div 
+          className="absolute top-8 right-8 z-40 transform overflow-hidden rounded-[24px] shadow-2xl bg-transparent"
+          style={{
+            transform: 'scale(0.8)',
+            transformOrigin: 'top right',
+            width: '450px',
+            height: '150px',
+            pointerEvents: 'none',
+            WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+            isolation: 'isolate'
+          }}
+        >
+          <iframe
+            src={spotifyUrl}
+            className="w-full h-full border-0 bg-transparent rounded-[24px]"
+            style={{ 
+              colorScheme: 'light',
+              background: 'transparent',
+              overflow: 'hidden'
+            }}
+            // @ts-ignore
+            allowtransparency="true"
+            title="Screen Spotify Notify"
+          />
+        </div>
       )}
 
       {/* Sound Toggle Button */}

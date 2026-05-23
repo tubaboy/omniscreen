@@ -26,6 +26,7 @@ export default function SettingsPage() {
     const [defaultMuted, setDefaultMuted] = useState<boolean>(true);
     const [settingsLoading, setSettingsLoading] = useState(true);
 
+
     // Notification settings
     const [silentStart, setSilentStart] = useState<number>(0);
     const [silentEnd, setSilentEnd] = useState<number>(8);
@@ -40,6 +41,8 @@ export default function SettingsPage() {
             setHudDefault(res.data.player_hud !== 'false');
             setAutoSnapshotInterval(parseInt(res.data.auto_snapshot_interval || '30'));
             setDefaultMuted(res.data.player_default_muted !== 'false');
+            
+
             setSilentStart(parseInt(res.data.alert_silent_start || '0'));
             setSilentEnd(parseInt(res.data.alert_silent_end || '8'));
             setAlertIntervalMin(parseInt(res.data.alert_interval_min || '30'));
@@ -290,6 +293,7 @@ export default function SettingsPage() {
                                             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${defaultMuted ? 'translate-x-6' : 'translate-x-1'}`} />
                                         </button>
                                     </div>
+
 
                                     <button
                                         onClick={savePlayerSettings}

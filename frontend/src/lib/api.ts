@@ -55,6 +55,8 @@ export interface Screen {
   snapshotAt: string | null;
   systemInfo: Record<string, unknown> | null;
   customBgUrl: string | null;
+  spotifyEnable: boolean;
+  spotifyUrl: string | null;
 }
 
 export interface ScreenCommand {

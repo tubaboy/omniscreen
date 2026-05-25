@@ -4,16 +4,20 @@
  */
 function fixAssetUrl(url, request) {
   if (!url) return url;
-  // Skip external URLs (YouTube thumbnails, favicons, etc.)
-  if (!url.includes('localhost:3001')) return url;
+  // Skip external URLs that don't serve internal assets
+  if (!url.includes('/assets/file/')) return url;
 
   // Derive the correct origin from the request's Host header
   const host = request.headers.host || request.headers[':authority'] || '';
-  // The backend port is embedded in the stored URL as :3001
-  // The request host already includes the correct port (e.g. linux-mint.local:3001)
   const protocol = request.headers['x-forwarded-proto'] || 'http';
+  const currentOrigin = `${protocol}://${host}`;
 
-  return url.replace(/http:\/\/localhost:3001/g, `${protocol}://${host}`);
+  // Replace any absolute URL pointing to internal asset files with the current request origin.
+  // This supports both normal URLs and complex JSON configurations (e.g. bgImageUrl inside widget JSON).
+  return url.replace(/(https?:\/\/[^\/]+?)(?:\/api)?\/assets\/file\//g, (match) => {
+    const hasApi = match.includes('/api');
+    return `${currentOrigin}${hasApi ? '/api' : ''}/assets/file/`;
+  });
 }
 
 /**

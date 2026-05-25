@@ -38,8 +38,16 @@ export default api;
  */
 export function fixUrl(url: string | null | undefined): string | null | undefined {
   if (!url || typeof window === 'undefined') return url;
-  if (!url.includes('localhost:3001')) return url;
-  return url.replace(/http:\/\/localhost:3001/g, `http://${window.location.hostname}:3001`);
+  if (!url.includes('/assets/file/')) return url;
+
+  // Derive the backend origin based on current browser's location hostname
+  const backendHost = `${window.location.hostname}:3001`;
+
+  // Dynamically replace any hardcoded backend asset URLs with the browser's current host
+  return url.replace(/(https?:\/\/[^\/]+?)(?:\/api)?\/assets\/file\//g, (match) => {
+    const hasApi = match.includes('/api');
+    return `http://${backendHost}${hasApi ? '/api' : ''}/assets/file/`;
+  });
 }
 
 export interface Screen {

@@ -121,8 +121,26 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
   const [newsItems, setNewsItems] = useState<string[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [dimensions, setDimensions] = useState({ width: 1920, height: 1080 });
   
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Window size listener for responsive layout
+  useEffect(() => {
+    const handleResize = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isPortrait = dimensions.height > dimensions.width;
+  const isCompactHeight = dimensions.height < 720;
+  const isNarrow = dimensions.width < 1200;
 
   // Clock
   useEffect(() => {
@@ -307,93 +325,189 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
       <div className="flex-1 flex flex-col justify-center relative z-10">
         
         {/* ─── Top Section: Time and Date ─── */}
-        <div className="flex flex-col items-center pb-8 space-y-1">
-        <h1 className="font-serif text-[160px] leading-none tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex items-baseline">
-          {renderTimeWithBlinkingColons(timeMain)}
-          <span className="text-[50px] font-light opacity-80 uppercase tracking-[0.2em] ml-6">
-            {timePeriod}
-          </span>
-        </h1>
-        <div className="h-1 w-20 bg-[#ec5b13] my-4 rounded-full shadow-[0_0_20px_rgba(236,91,19,0.6)]"></div>
-        {showDate && (
-          <p className="font-serif text-3xl italic tracking-widest text-white/90">
-            {dateStr}
-          </p>
-        )}
-      </div>
+        <div className={`flex flex-col items-center space-y-1 transition-all duration-300 ${
+          isPortrait ? 'pb-4 pt-4' : isCompactHeight ? 'pb-2 pt-2' : 'pb-8 pt-8'
+        }`}>
+          <h1 className={`font-serif leading-none tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex items-baseline transition-all duration-300 ${
+            isPortrait ? 'text-[12vw]' : isCompactHeight ? 'text-[90px]' : 'text-[160px]'
+          }`}>
+            {renderTimeWithBlinkingColons(timeMain)}
+            <span className={`font-light opacity-80 uppercase tracking-[0.2em] transition-all duration-300 ${
+              isPortrait ? 'text-[4vw] ml-3' : isCompactHeight ? 'text-[30px] ml-4' : 'text-[50px] ml-6'
+            }`}>
+              {timePeriod}
+            </span>
+          </h1>
+          <div className={`bg-[#ec5b13] rounded-full shadow-[0_0_20px_rgba(236,91,19,0.6)] transition-all duration-300 ${
+            isPortrait ? 'h-0.5 w-12 my-2' : isCompactHeight ? 'h-0.5 w-16 my-2' : 'h-1 w-20 my-4'
+          }`}></div>
+          {showDate && (
+            <p className={`font-serif italic tracking-widest text-white/90 transition-all duration-300 ${
+              isPortrait ? 'text-[3.5vw]' : isCompactHeight ? 'text-lg' : 'text-3xl'
+            }`}>
+              {dateStr}
+            </p>
+          )}
+        </div>
 
       {/* ─── Middle Section: Premium Weather Card ─── */}
-      <div className="relative z-10 flex justify-center px-12 mb-8">
-        <div className="glass rounded-[48px] p-8 flex flex-col gap-6 max-w-6xl w-full shadow-2xl">
+      <div className={`relative z-10 flex justify-center transition-all duration-300 ${
+        isPortrait ? 'px-4 mb-4' : isNarrow ? 'px-6 mb-3' : isCompactHeight ? 'px-8 mb-2' : 'px-12 mb-8'
+      }`}>
+        <div className={`glass shadow-2xl transition-all duration-300 w-full ${
+          isPortrait 
+            ? 'rounded-[32px] p-5 flex flex-col gap-4 max-w-[480px]' 
+            : isNarrow
+              ? 'rounded-[36px] p-5 flex flex-col gap-4 max-w-4xl'
+              : isCompactHeight 
+                ? 'rounded-[36px] p-6 flex flex-col gap-4 max-w-5xl' 
+                : 'rounded-[48px] p-8 flex flex-col gap-6 max-w-6xl'
+        }`}>
           
-          <div className="flex items-stretch gap-12">
+          <div className={`flex transition-all duration-300 ${
+            isPortrait ? 'flex-col gap-4' : isNarrow ? 'items-stretch gap-4' : 'items-stretch gap-12'
+          }`}>
             {/* Column 1: Current Main */}
-            <div className="flex flex-col justify-between min-w-[320px]">
-              <div className="flex items-center gap-2 mb-4 opacity-90">
-                <MapPin size={18} className="text-[#ec5b13]" />
-                <span className="text-2xl font-bold tracking-tight">{city}</span>
+            <div className={`flex flex-col transition-all duration-300 ${
+              isPortrait 
+                ? 'items-center text-center w-full min-w-0' 
+                : isNarrow
+                  ? 'justify-between min-w-[200px] max-w-[240px]'
+                  : isCompactHeight
+                    ? 'justify-between min-w-[260px]'
+                    : 'justify-between min-w-[320px]'
+            }`}>
+              <div className={`flex items-center gap-2 mb-2 opacity-90 ${isPortrait ? 'justify-center' : ''}`}>
+                <MapPin size={isPortrait ? 16 : 18} className="text-[#ec5b13]" />
+                <span className={`${isPortrait ? 'text-lg' : 'text-xl'} font-bold tracking-tight`}>{city}</span>
               </div>
               
-              <div className="flex items-center gap-8 py-2">
-                {currentWmo && <currentWmo.Icon size={100} strokeWidth={1.5} className="text-white drop-shadow-md" />}
+              <div className={`flex items-center py-2 transition-all duration-300 ${
+                isPortrait ? 'justify-center gap-6' : isNarrow ? 'gap-4' : 'gap-8'
+              }`}>
+                {currentWmo && (
+                  <currentWmo.Icon 
+                    size={isPortrait ? 70 : isNarrow ? 70 : isCompactHeight ? 80 : 100} 
+                    strokeWidth={1.5} 
+                    className="text-white drop-shadow-md" 
+                  />
+                )}
                 <div className="flex flex-col">
                   <div className="flex items-start">
-                    <span className="text-8xl font-black tracking-tighter">{weather?.current.temp || '--'}</span>
-                    <span className="text-4xl mt-3 ml-1">°C</span>
+                    <span className={`font-black tracking-tighter transition-all duration-300 ${
+                      isPortrait || isNarrow ? 'text-6xl' : isCompactHeight ? 'text-7xl' : 'text-8xl'
+                    }`}>{weather?.current.temp || '--'}</span>
+                    <span className={`ml-1 ${isPortrait || isNarrow ? 'text-2xl mt-1' : 'text-4xl mt-3'}`}>°C</span>
                   </div>
                   <div className="flex items-center gap-3 mt-1 opacity-80 font-medium">
-                    <span className="text-lg">體感溫度: {weather?.current.feelsLike}°C</span>
+                    <span className={isPortrait || isNarrow ? 'text-sm' : 'text-lg'}>體感溫度: {weather?.current.feelsLike}°C</span>
                   </div>
                 </div>
               </div>
               
-              <div className="mt-4 text-2xl font-medium tracking-wide text-white/90">
+              <div className={`font-medium tracking-wide text-white/90 ${
+                isPortrait ? 'text-lg mt-1' : 'text-xl mt-3'
+              }`}>
                 {currentWmo?.label || '讀取中...'}
               </div>
             </div>
 
-            <div className="w-px bg-white/10 my-4" />
+            <div className={isPortrait ? 'h-px w-full bg-white/10 my-1' : 'w-px bg-white/10 my-4'} />
 
             {/* Column 2: Details */}
-            <div className="flex flex-col justify-center gap-8 py-2 min-w-[140px]">
+            <div className={`flex transition-all duration-300 ${
+              isPortrait 
+                ? 'flex-row justify-around w-full py-1 gap-2' 
+                : isNarrow
+                  ? 'flex flex-col justify-center gap-4 py-2 min-w-[100px] max-w-[120px]'
+                  : 'flex flex-col justify-center gap-8 py-2 min-w-[140px]'
+            }`}>
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                  <Droplets size={24} className="text-sky-400" />
+                <div className={`rounded-2xl bg-white/5 border border-white/10 transition-all ${
+                  isPortrait || isNarrow ? 'p-2' : 'p-3'
+                }`}>
+                  <Droplets size={isPortrait || isNarrow ? 20 : 24} className="text-sky-400" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-3xl font-bold">{weather?.current.humidity || '--'}<span className="text-lg ml-1 opacity-60">%</span></span>
+                  <span className={`font-bold ${isPortrait || isNarrow ? 'text-xl' : 'text-3xl'}`}>
+                    {weather?.current.humidity || '--'}
+                    <span className={`ml-1 opacity-60 ${isPortrait || isNarrow ? 'text-xs' : 'text-lg'}`}>%</span>
+                  </span>
+                  {(isPortrait || isNarrow) && <span className="text-[10px] text-white/55">濕度</span>}
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                  <Wind size={24} className="text-emerald-400" />
+                <div className={`rounded-2xl bg-white/5 border border-white/10 transition-all ${
+                  isPortrait || isNarrow ? 'p-2' : 'p-3'
+                }`}>
+                  <Wind size={isPortrait || isNarrow ? 20 : 24} className="text-emerald-400" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-3xl font-bold">{weather?.current.windSpeed || '--'}<span className="text-lg ml-1 opacity-60">m/s</span></span>
+                  <span className={`font-bold ${isPortrait || isNarrow ? 'text-xl' : 'text-3xl'}`}>
+                    {weather?.current.windSpeed || '--'}
+                    <span className={`ml-1 opacity-60 ${isPortrait || isNarrow ? 'text-xs' : 'text-lg'}`}>m/s</span>
+                  </span>
+                  {(isPortrait || isNarrow) && <span className="text-[10px] text-white/55">風速</span>}
                 </div>
               </div>
             </div>
 
-            <div className="w-px bg-white/10 my-4" />
+            <div className={isPortrait ? 'h-px w-full bg-white/10 my-1' : 'w-px bg-white/10 my-4'} />
 
             {/* Column 3: Forecast */}
-            <div className="flex-1 flex items-center justify-around gap-4 px-4">
+            <div className={`flex-1 flex transition-all duration-300 ${
+              isPortrait 
+                ? 'flex-col w-full gap-3 px-2 py-1' 
+                : isNarrow
+                  ? 'items-center justify-around gap-1.5 px-1'
+                  : isCompactHeight
+                    ? 'items-center justify-around gap-2 px-2'
+                    : 'items-center justify-around gap-4 px-4'
+            }`}>
               {weather?.daily.map((day, idx) => {
                 const DayWmo = WMO_MAPPING[day.weatherCode] ?? { label: '未知', Icon: Cloud };
+                if (isPortrait) {
+                  return (
+                    <div key={idx} className="flex items-center justify-between w-full py-1.5 border-b border-white/5 last:border-0">
+                      <span className="text-sm font-bold opacity-80 w-16 text-left">{getWeekday(day.date)}</span>
+                      <div className="flex items-center gap-2 flex-1 justify-center">
+                        <DayWmo.Icon size={24} strokeWidth={1.5} className="text-white" />
+                        <span className="text-xs opacity-75">{DayWmo.label}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-right">
+                        <span className="text-sm font-bold">{day.tempMax}° / {day.tempMin}°</span>
+                        <div className="flex items-center gap-0.5 px-2 py-0.5 bg-sky-500/10 rounded-full border border-sky-500/20">
+                          <span className="text-[10px] font-black text-sky-300">{day.pop}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
                 return (
-                  <div key={idx} className="flex flex-col items-center gap-4 group hover:scale-105 transition-transform duration-300">
-                    <span className="text-xl font-bold opacity-80">{getWeekday(day.date)}</span>
-                    <div className="bg-white/5 p-4 rounded-3xl border border-white/5 shadow-inner">
-                      <DayWmo.Icon size={44} strokeWidth={1.5} />
+                  <div key={idx} className={`flex flex-col items-center group hover:scale-105 transition-transform duration-300 ${
+                    isNarrow ? 'gap-2' : 'gap-4'
+                  }`}>
+                    <span className={`${isNarrow ? 'text-sm' : isCompactHeight ? 'text-base' : 'text-xl'} font-bold opacity-80`}>
+                      {getWeekday(day.date)}
+                    </span>
+                    <div className={`bg-white/5 border border-white/5 shadow-inner transition-all ${
+                      isNarrow ? 'p-2.5 rounded-2xl' : 'p-4 rounded-3xl'
+                    }`}>
+                      <DayWmo.Icon size={isNarrow ? 28 : isCompactHeight ? 36 : 44} strokeWidth={1.5} />
                     </div>
                     <div className="flex flex-col items-center">
-                      <div className="flex gap-2 font-bold text-xl">
+                      <div className={`flex gap-2 font-bold ${isNarrow ? 'text-base' : 'text-xl'}`}>
                         <span className="text-white">{day.tempMax}°</span>
                         <span className="text-white/40">{day.tempMin}°</span>
                       </div>
-                      <div className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-sky-500/10 rounded-full border border-sky-500/20">
-                        <Droplets size={12} className="text-sky-400" />
-                        <span className="text-[11px] font-black text-sky-300">{day.pop}%</span>
+                      <div className={`flex items-center gap-1 bg-sky-500/10 rounded-full border border-sky-500/20 transition-all ${
+                        isNarrow ? 'mt-1 px-2 py-0.5' : 'mt-2 px-3 py-1'
+                      }`}>
+                        <Droplets size={isNarrow ? 10 : 12} className="text-sky-400" />
+                        <span className={`font-black text-sky-300 ${isNarrow ? 'text-[9px]' : 'text-[11px]'}`}>
+                          {day.pop}%
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -403,9 +517,11 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
           </div>
 
           {/* Footer Info - Now INSIDE the glass card */}
-          <div className="mt-2 pt-6 border-t border-white/10 flex justify-between items-center opacity-40 text-xs font-bold tracking-widest uppercase">
+          <div className={`mt-2 pt-6 border-t border-white/10 flex justify-between items-center opacity-40 text-xs font-bold tracking-widest uppercase transition-all duration-300 ${
+            isPortrait ? 'flex-col gap-2 text-[9px] items-center text-center' : ''
+          }`}>
             <div className="flex items-center gap-2">
-              <RefreshCw size={12} />
+              <RefreshCw size={isPortrait ? 10 : 12} />
               更新時間: {weather?.current.updateTime || '--:--'}
             </div>
             <div className="flex items-center gap-2">
@@ -420,17 +536,30 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
 
       {/* ─── Bottom Section: News Ticker ─── */}
       {showBottomTicker && (
-      <div className="relative z-20 w-full glass border-x-0 border-b-0 py-8 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
-        <div className="flex items-center px-12 h-[80px]">
+      <div className={`relative z-20 w-full glass border-x-0 border-b-0 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] transition-all duration-300 ${
+        isPortrait ? 'py-4' : isCompactHeight ? 'py-5' : 'py-8'
+      }`}>
+        <div className={`flex items-center transition-all duration-300 ${
+          isPortrait ? 'px-4 h-[40px]' : isCompactHeight ? 'px-8 h-[60px]' : 'px-12 h-[80px]'
+        }`}>
           {/* Label using the Widget Title */}
-          <div className="flex items-center gap-4 pr-12 border-r border-white/20 h-full">
-            <Megaphone size={32} className="text-[#ec5b13] animate-bounce" />
-            <span className="text-white font-black uppercase tracking-[0.4em] text-xl whitespace-nowrap">
+          <div className={`flex items-center h-full border-r border-white/20 transition-all duration-300 ${
+            isPortrait ? 'gap-2 pr-4' : isCompactHeight ? 'gap-3 pr-8' : 'gap-4 pr-12'
+          }`}>
+            <Megaphone 
+              size={isPortrait ? 18 : isCompactHeight ? 24 : 32} 
+              className="text-[#ec5b13] animate-bounce shrink-0" 
+            />
+            <span className={`text-white font-black uppercase whitespace-nowrap transition-all duration-300 ${
+              isPortrait ? 'text-sm tracking-[0.2em]' : isCompactHeight ? 'text-base tracking-[0.3em]' : 'text-xl tracking-[0.4em]'
+            }`}>
               {title}
             </span>
           </div>
           
-          <div className="flex-1 relative h-full overflow-hidden ml-12">
+          <div className={`flex-1 relative h-full overflow-hidden transition-all duration-300 ${
+            isPortrait ? 'ml-4' : isCompactHeight ? 'ml-8' : 'ml-12'
+          }`}>
             <div className="absolute inset-0 flex items-center">
               {contentItems.map((item, idx) => (
                 <div 
@@ -443,7 +572,9 @@ function DashboardWidget({ config }: { config: DashboardConfig }) {
                       : 'translate-y-full opacity-0'
                   }`}
                 >
-                  <span className="text-4xl font-light tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className={`font-light tracking-wide whitespace-nowrap overflow-hidden text-ellipsis transition-all duration-300 ${
+                    isPortrait ? 'text-base' : isCompactHeight ? 'text-2xl' : 'text-4xl'
+                  }`}>
                     {marqueePrefix}{item}
                   </span>
                 </div>
